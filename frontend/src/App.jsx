@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import Home from "./Home.jsx";
 import SwipixApp from "./SwipixApp.tsx";
 import VisionPage from "./VisionPage.jsx";
-import RippleGrid from "./components/RippleGrid.jsx";
+import LiquidEther from "./components/LiquidEther.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -52,23 +52,24 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden', background: '#d9fcf9' }}>
-        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-          <RippleGrid
-            enableRainbow
-            gridColor="#ffffff"
-            rippleIntensity={0.06}
-            gridSize={22}
-            gridThickness={16}
-            fadeDistance={2.4}
-            vignetteStrength={5}
-            glowIntensity={0.5}
-            opacity={1}
-            gridRotation={0}
-            mouseInteraction
-            mouseInteractionRadius={1}
-          />
-        </div>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+        <LiquidEther
+          colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
+          mouseForce={20}
+          cursorSize={100}
+          isViscous={false}
+          viscous={30}
+          iterationsViscous={32}
+          iterationsPoisson={32}
+          resolution={0.5}
+          isBounce={false}
+          autoDemo={true}
+          autoSpeed={0.5}
+          autoIntensity={2.2}
+          takeoverDuration={0.25}
+          autoResumeDelay={3000}
+          autoRampDuration={0.6}
+        />
       </div>
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />

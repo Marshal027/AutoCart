@@ -7,6 +7,8 @@ import { ShinyText } from "./components/ReactBits";
 import { TrendingDown, Pizza, ShoppingBag, ShoppingCart, Utensils, Sparkles, Shirt } from "lucide-react";
 import { TinderSwipe } from "./components/TinderSwipe";
 import { SmartSavings } from "./components/SmartSavings";
+import TargetCursor from "./TargetCursor";
+import Stepper, { Step } from "./Stepper";
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -161,6 +163,21 @@ function App() {
   const [finalResult, setFinalResult] = useState<FinalProductResult | null>(null);
   const [plannerResults, setPlannerResults] = useState<any>(null);
 
+  useEffect(() => {
+    if (questions.length > 0) {
+      const newAnswers = { ...selectedAnswers };
+      let changed = false;
+      questions.forEach((q, idx) => {
+        const qId = q.id !== undefined ? String(q.id) : `q_${idx}`;
+        if (!newAnswers[qId] && q.options && q.options.length > 0) {
+          newAnswers[qId] = q.options[0];
+          changed = true;
+        }
+      });
+      if (changed) setSelectedAnswers(newAnswers);
+    }
+  }, [questions]);
+
   // Tinder Swipe & Final Confirmation State
   const [showTinderSwipe, setShowTinderSwipe] = useState(false);
   const [swipeProducts, setSwipeProducts] = useState<any[]>([]);
@@ -312,7 +329,7 @@ function App() {
     setActiveFoodDish(null);
 
     try {
-      const endpoint = `${API_BASE}/validate/`;
+      const endpoint = `${API_BASE}/planner/validate/`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -423,7 +440,7 @@ function App() {
     }));
 
     try {
-      const endpoint = `${API_BASE}/finalize/`;
+      const endpoint = `${API_BASE}/planner/finalize/`;
       const payload = { query: q.trim(), answers: formattedAnswers };
 
       const res = await fetch(endpoint, {
@@ -554,6 +571,7 @@ function App() {
 
   return (
     <div className="swipix-app swipix-app-body app-wrapper app-wrapper--with-sidebar">
+      <TargetCursor hideDefaultCursor={false} cursorColor="#0e23a6" cursorColorOnTarget="#d93d3d" />
       {/* Ambient glow blobs */}
       <div className="glow glow--1" />
       <div className="glow glow--2" />
@@ -800,10 +818,7 @@ function App() {
           </div>
         </div>
 
-        <div className="w-full flex flex-col items-center justify-center mb-8">
-          <h2 className="text-xl font-bold text-center mt-0 w-full mb-2">Auto Category Detection Enabled</h2>
-          <p className="text-text/60 text-sm text-center">Type, speak, or use image search. AI detects category and routes to the right MCP automatically.</p>
-        </div>
+        
 
         <div className="flex flex-col lg:flex-row gap-12 w-full max-w-7xl mx-auto mt-4">
           
@@ -880,56 +895,44 @@ function App() {
 
         {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
         {questions.length > 0 && !finalResult && (
-          <section className="mcq-section">
-            <div className="mcq-header">
-              <div className="mcq-badge">Optional Clarifications</div>
-              <h3 className="mcq-title"><ShinyText text="Narrow down what you want" /></h3>
-              <p className="mcq-subtitle">
-                Answer these questions to help AI zero in on your exact preference (or skip ahead).
-              </p>
-            </div>
-
-            <div className="w-full">
-            {(() => {
-              const displayQuestions = questions.map((q, idx) => ({
-                id: q.id !== undefined ? String(q.id) : `q_${idx}`,
-                type: "single_choice",
-                question: q.question,
-                options: q.options
-              }));
-              const unresolved = displayQuestions.find((q) => !selectedAnswers[q.id]);
-              
-              return (
-                <QuestionFlow 
-                  questions={displayQuestions as any}
-                  answers={selectedAnswers}
-                  onAnswer={(id, val) => handleOptionSelect(id, String(val))}
-                  activeQuestionId={unresolved ? unresolved.id : null}
-                  liveVoiceText=""
-                />
-              );
-            })()}
-          </div>
-
-            <div className="mcq-actions">
-              <button
-                className="cta-btn"
-                onClick={handleFinalizeProduct}
-                disabled={finalizing}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1050, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ width: '100%', maxWidth: '600px', display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', paddingRight: '1rem' }}>
+              <button 
+                onClick={() => handleFinalizeProduct()} 
+                className="cursor-target px-4 py-2 bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors font-semibold"
               >
-                {finalizing ? (
-                  <>
-                    <span className="cta-btn__spinner" />
-                    Fetching...
-                  </>
-                ) : (
-                  <>
-                    Narrow Down Exact Want ✨
-                  </>
-                )}
+                Skip ⏭
               </button>
             </div>
-          </section>
+            <Stepper
+              initialStep={1}
+              onFinalStepCompleted={handleFinalizeProduct}
+              backButtonText="Previous"
+              nextButtonText="Done"
+              hideStepIndicators={true}
+              style={{ width: '100%', maxWidth: '600px' }}
+            >
+              {questions.map((q, idx) => {
+                const qId = q.id !== undefined ? String(q.id) : `q_${idx}`;
+                return (
+                  <Step key={qId}>
+                    <h2 className="text-xl font-bold text-white mb-6 text-center cursor-target" style={{fontFamily: 'Space Mono'}}>{q.question}</h2>
+                    <div className="flex flex-col gap-3 mb-4">
+                      {q.options && q.options.map((opt) => (
+                        <button
+                          key={opt}
+                          className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? 'bg-[#5227ff] text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                          onClick={() => handleOptionSelect(qId, opt)}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </Step>
+                );
+              })}
+            </Stepper>
+          </div>
         )}
 
         

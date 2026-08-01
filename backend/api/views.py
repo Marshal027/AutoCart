@@ -6,6 +6,7 @@ from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from google import genai
+from .mcp_registry import WORKING_MCPS, NEEDS_WORK_MCPS, CLAUDE_CONNECTORS
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,10 @@ MCP_CATEGORY_ALIASES = {
     "shoes": "apparel",
     "clothing": "apparel",
     "footwear": "apparel",
+    "travel": "travel",
+    "flights": "travel",
+    "hotels": "travel",
+    "experience": "travel",
 }
 
 
@@ -87,6 +92,12 @@ def build_mcp_call(category: str, product: str) -> dict:
         return {
             "mcp_server": "Shopify Apparel Network",
             "tool": "search_products",
+            "arguments": {"query": product},
+        }
+    if cat == "travel":
+        return {
+            "mcp_server": "Global Travel Network",
+            "tool": "search_flights",
             "arguments": {"query": product},
         }
     return {
@@ -234,9 +245,11 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
     elif category == "beauty":
         schema_example = '{"id":"b1","name":"Clinikally SPF 50 Sunscreen","brand":"Clinikally","price":599,"original_price":799,"delivery_time":"2-3 days","rating":4.4,"quantity":"50ml","emoji":"✨","is_ai_recommended":true,"description":"Dermatologist recommended broad spectrum sun protection"}'
         prompt = f"Generate {count} realistic Indian beauty/skincare products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
-    else:  # apparel
         schema_example = '{"id":"a1","name":"Campus Running Shoes","brand":"Campus","price":1299,"original_price":1799,"delivery_time":"3-5 days","rating":4.3,"quantity":"UK 9","emoji":"👟","is_ai_recommended":true,"description":"Lightweight breathable mesh running shoes for daily fitness"}'
         prompt = f"Generate {count} realistic Indian apparel/footwear products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
+    elif category == "travel":
+        schema_example = '{"id":"t1","name":"Roundtrip Flight to Goa","brand":"OctoTrip","price":8500,"original_price":10500,"delivery_time":"Instant Booking","rating":4.8,"quantity":"1 Ticket","emoji":"✈️","is_ai_recommended":true,"description":"Non-stop flight departing this weekend"}'
+        prompt = f"Generate {count} realistic travel/flight options for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
 
     system = "You are a product data generator for an Indian e-commerce platform. Always return a valid JSON array of products with realistic Indian brand names, prices in INR, and relevant details. Never add explanations outside the JSON."
     
@@ -245,14 +258,36 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[-1]
             raw = raw.rsplit("```", 1)[0].strip()
-        parsed = json.loads(raw)
+        try:
+            parsed = json.loads(raw)
+        except Exception as e:
+            logger.error("JSON decode error in _parse_ai_json: %s", e)
+            return []
+            
+        items = []
         if isinstance(parsed, list):
-            return parsed[:count]
-        if isinstance(parsed, dict):
-            for key in ("products", "items", "data", "result"):
+            items = parsed[:count]
+        elif isinstance(parsed, dict):
+            for key in ("products", "items", "data", "result", "restaurants", "food", "flights"):
                 if key in parsed and isinstance(parsed[key], list):
-                    return parsed[key][:count]
-        return []
+                    items = parsed[key][:count]
+                    break
+        
+        # Ensure we only process dicts
+        valid_items = []
+        for i in items:
+            if isinstance(i, dict):
+                valid_items.append(i)
+                
+        import urllib.parse
+        for item in valid_items:
+            if not item.get("image_url") and not item.get("image"):
+                name = str(item.get("name") or item.get("title") or "product")
+                img_prompt = urllib.parse.quote(f"{name} {category} high quality photography")
+                item["image_url"] = f"https://image.pollinations.ai/prompt/{img_prompt}?width=400&height=500&nologo=true"
+                item["image"] = item["image_url"] # Set both to be safe
+                
+        return valid_items
 
     # Try Gemini first
     try:
@@ -267,6 +302,9 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
             )
             return _parse_ai_json(response.text)
     except Exception as e:
+        print("GEMINI EXCEPTION:", str(e))
+        import traceback
+        traceback.print_exc()
         logger.warning("Gemini product generation failed: %s", e)
 
     # Fallback to Groq
@@ -295,9 +333,11 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
             content = res.json()["choices"][0]["message"]["content"]
             return _parse_ai_json(content)
     except Exception as e:
-        logger.warning("Groq product generation failed: %s", e)
-
-    return []
+        print("GROQ EXCEPTION:", str(e))
+        import traceback
+        traceback.print_exc()
+        logger.error("Groq product generation failed: %s", e)
+        return []
 
 
 
@@ -419,17 +459,25 @@ def fetch_beauty_mcp_products(query: str, answers: list) -> dict:
 
     for mcp_endpoint in mcp_endpoints:
         try:
-            headers = {"Content-Type": "application/json"}
+            headers = {
+                "Content-Type": "application/json",
+                "Ucp-Agent-Profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
+            }
             payload = {
                 "jsonrpc": "2.0", "id": 1,
                 "method": "tools/call",
-                "params": {"name": "search_products", "arguments": {"query": query}}
+                "params": {"name": "search_products", "arguments": {"query": query}},
+                "meta": {
+                    "ucp-agent.profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
+                }
             }
             res = requests.post(mcp_endpoint, json=payload, headers=headers, timeout=3)
             if res.status_code == 200:
                 data = res.json()
                 if "result" in data and isinstance(data["result"], list):
                     live_products.extend(data["result"])
+            else:
+                logger.info("Beauty MCP at %s returned status %s", mcp_endpoint, res.status_code)
         except Exception as e:
             logger.info("Beauty MCP unavailable at %s (%s).", mcp_endpoint, e)
 
@@ -459,17 +507,25 @@ def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
 
     for mcp_endpoint in mcp_endpoints:
         try:
-            headers = {"Content-Type": "application/json"}
+            headers = {
+                "Content-Type": "application/json",
+                "Ucp-Agent-Profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
+            }
             payload = {
                 "jsonrpc": "2.0", "id": 1,
                 "method": "tools/call",
-                "params": {"name": "search_products", "arguments": {"query": query}}
+                "params": {"name": "search_products", "arguments": {"query": query}},
+                "meta": {
+                    "ucp-agent.profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
+                }
             }
             res = requests.post(mcp_endpoint, json=payload, headers=headers, timeout=3)
             if res.status_code == 200:
                 data = res.json()
                 if "result" in data and isinstance(data["result"], list):
                     live_products.extend(data["result"])
+            else:
+                logger.info("Apparel MCP at %s returned status %s", mcp_endpoint, res.status_code)
         except Exception as e:
             logger.info("Apparel MCP unavailable at %s (%s).", mcp_endpoint, e)
 
@@ -481,6 +537,45 @@ def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
         "mcp_server": "Shopify Apparel Network",
         "is_exact_match": True,
         "match_notice": f"Top {len(live_products)} apparel picks curated for you",
+        "products": live_products,
+    }
+
+
+def fetch_travel_mcp_products(query: str, answers: list) -> dict:
+    """
+    Queries the verified WORKING_MCPS travel endpoints.
+    Falls back to AI-generated realistic data if the MCPs require specific auth we don't have yet.
+    """
+    live_products = []
+    
+    # Filter WORKING_MCPS for travel ones
+    travel_endpoints = [url for url in WORKING_MCPS if "trip" in url or "travel" in url or "ticket" in url or "experience" in url or "pillow" in url or "lastminute" in url]
+
+    for mcp_endpoint in travel_endpoints:
+        try:
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "jsonrpc": "2.0", "id": 1,
+                "method": "tools/call",
+                "params": {"name": "search_flights", "arguments": {"query": query}}
+            }
+            # We do a short timeout so the UI doesn't hang
+            res = requests.post(mcp_endpoint, json=payload, headers=headers, timeout=2)
+            if res.status_code == 200:
+                data = res.json()
+                if "result" in data and isinstance(data["result"], list):
+                    live_products.extend(data["result"])
+        except Exception as e:
+            logger.info("Travel MCP unavailable at %s (%s).", mcp_endpoint, e)
+
+    if not live_products:
+        logger.info("Travel MCPs returned no products, generating AI products for: %s", query)
+        live_products = _ai_generate_products(query, answers, "travel", 2)
+
+    return {
+        "mcp_server": "Global Travel Network",
+        "is_exact_match": True,
+        "match_notice": f"Top {len(live_products)} travel options curated for you",
         "products": live_products,
     }
 
@@ -612,6 +707,10 @@ def finalize_product(request):
             mcp_data = fetch_swiggy_dineout_mcp_products(query, answers)
             mcp_data["products"] = mcp_data.get("products", [])[:2]
             final_info["swiggy_dineout_mcp"] = mcp_data
+        elif normalized_category == "travel":
+            mcp_data = fetch_travel_mcp_products(query, answers)
+            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            final_info["travel_mcp"] = mcp_data
 
         return Response(final_info)
     except Exception as exc:
