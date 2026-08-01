@@ -1,6 +1,6 @@
 backend/env
 frontend/env
-
+.pyc
 # or if you use .env files
 .env
 *.env
