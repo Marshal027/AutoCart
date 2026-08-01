@@ -27,7 +27,7 @@ import {
   Bell,
 } from "lucide-react";
 import type { CartItem, CategoryTrack, Item } from "../mockData";
-import { cx } from "../utils/cx";
+import { cn as cx } from "../lib/utils";
 import { SpotlightCard, ShinyText, SpecularButton, CurvedInput } from "./ReactBits";
 import { formatINR } from "../mockData";
 import { Background3D } from "./Background3D";
@@ -268,6 +268,7 @@ function ProgressTimeline({ analysis, hasPlan, hasProducts }: {
 // ΓöÇΓöÇΓöÇ Question Components ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const textInputClass = "w-full border border-border-col bg-bg px-4 py-3 text-sm text-text outline-none transition-colors placeholder:text-text/35 focus:border-accent";
+const optionButtonClass = "flex min-h-[48px] items-center justify-center border px-4 py-3 font-['Space_Mono'] text-xs font-bold tracking-tight transition-all";
 
 const questionRenderers: Record<QuestionType, (props: RendererProps) => ReactElement> = {
   text: ({ value, onChange }) => (
@@ -299,7 +300,7 @@ const questionRenderers: Record<QuestionType, (props: RendererProps) => ReactEle
       {(question.options ?? []).map((option) => (
         <button key={option} type="button" onClick={() => onChange(option)}
           className={cx(optionButtonClass, value === option
-            ? "border-accent bg-accent text-bg" : "border-border-col bg-bg text-text hover:border-accent")}>
+            ? "border-accent bg-accent text-bg" : "border-border-col bg-gray-50 dark:bg-gray-800 text-text hover:border-accent hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm")}>
           {option}
         </button>
       ))}
@@ -315,7 +316,7 @@ const questionRenderers: Record<QuestionType, (props: RendererProps) => ReactEle
             <button key={option} type="button"
               onClick={() => onChange(isSel ? selected.filter((i) => i !== option) : [...selected, option])}
               className={cx(optionButtonClass, isSel
-                ? "border-accent bg-accent text-bg" : "border-border-col bg-bg text-text hover:border-accent")}>
+                ? "border-accent bg-accent text-bg" : "border-border-col bg-gray-50 dark:bg-gray-800 text-text hover:border-accent hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm")}>
               {option}
             </button>
           );
@@ -339,7 +340,7 @@ const questionRenderers: Record<QuestionType, (props: RendererProps) => ReactEle
       {[true, false].map((option) => (
         <button key={String(option)} type="button" onClick={() => onChange(option)}
           className={cx(optionButtonClass, value === option
-            ? "border-accent bg-accent text-bg" : "border-border-col bg-bg text-text hover:border-accent")}>
+            ? "border-accent bg-accent text-bg" : "border-border-col bg-gray-50 dark:bg-gray-800 text-text hover:border-accent hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm")}>
           {option ? "Yes" : "No"}
         </button>
       ))}
@@ -418,11 +419,13 @@ function QuestionCard({ question, value, onChange, isLiveTarget, liveVoiceText }
         )}
         
         {/* Custom Answer / Voice Textbox */}
-        <CurvedInput 
-          value={customValue}
-          onChange={(e) => onChange(e.target.value)} 
-          placeholder={question.type === "text" ? "Type or speak your answer..." : "Or type/speak a custom answer..."} 
-        />
+        {question.type === "text" && (
+          <CurvedInput 
+            value={customValue}
+            onChange={(e) => onChange(e.target.value)} 
+            placeholder="Type or speak your answer..." 
+          />
+        )}
       </SpotlightCard>
     </motion.div>
   );
@@ -1164,7 +1167,8 @@ function CategorySwipeScreen({
   // ΓöÇΓöÇΓöÇ Main Swipe View ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   return (
-    <div className="flex h-screen w-full bg-bg text-text relative overflow-hidden">
+    <div className="relative isolate flex h-screen w-full bg-bg text-text overflow-hidden">
+      <Background3D />
       <AnimatePresence>
         {showSuccessOverlay && (
           <PravaPaymentSuccessOverlay totalAmount={cartTotal} cartItems={cart} onClose={() => setShowSuccessOverlay(false)} />
@@ -1175,7 +1179,7 @@ function CategorySwipeScreen({
       <motion.div 
         animate={cartPing ? { scale: [1, 1.05, 1], borderColor: ["var(--theme-border)", "var(--theme-accent)", "var(--theme-border)"] } : {}}
         transition={{ duration: 0.5, ease: "easeInOut" }}
-        className="w-80 border-r border-border-col bg-card-bg flex flex-col h-full shrink-0 origin-left"
+        className="relative z-10 w-80 border-r border-border-col bg-card-bg flex flex-col h-full shrink-0 origin-left"
       >
         <div className={cx(
           "flex items-center justify-between border-b px-5 py-4 transition-colors duration-300",
@@ -1252,7 +1256,7 @@ function CategorySwipeScreen({
       </motion.div>
 
       {/* Right side ΓÇö swiping area */}
-      <div className="flex-1 flex flex-col h-full overflow-y-auto relative" id="swipe-main-scroll">
+      <div className="relative z-10 flex-1 flex flex-col h-full overflow-y-auto" id="swipe-main-scroll">
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-border-col bg-card-bg px-5 py-3">
           <div className="mx-auto flex w-full items-center justify-between">

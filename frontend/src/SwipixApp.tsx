@@ -4,8 +4,8 @@ import Lenis from 'lenis';
 import Nav from "./components/Nav.jsx";
 import { ProductSwipeView, QuestionFlow, useWatchlist, toggleWatchlist } from "./components/SwipeScreens";
 import { ShinyText } from "./components/ReactBits";
-import CircularGallery from "./components/CircularGallery.jsx";
 import { TrendingDown, Pizza, ShoppingBag, ShoppingCart, Utensils, Sparkles, Shirt } from "lucide-react";
+import { TinderSwipe } from "./components/TinderSwipe";
 import { SmartSavings } from "./components/SmartSavings";
 
 const API_BASE = "http://127.0.0.1:8000/api";
@@ -152,15 +152,19 @@ function App() {
   const navigate = useNavigate();
   const watchlistItems = useWatchlist();
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<CategoryId | null>(null);
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
 
   // MCQ questions state
   const [questions, setQuestions] = useState<MCQQuestion[]>([]);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [finalResult, setFinalResult] = useState<FinalProductResult | null>(null);
   const [plannerResults, setPlannerResults] = useState<any>(null);
+
+  // Tinder Swipe & Final Confirmation State
+  const [showTinderSwipe, setShowTinderSwipe] = useState(false);
+  const [swipeProducts, setSwipeProducts] = useState<any[]>([]);
+  const [showFinalConfirmation, setShowFinalConfirmation] = useState(false);
 
   // Expanded Product / Dish Detail Modal State
   const [activeProduct, setActiveProduct] = useState<SwiggyProduct | null>(null);
@@ -295,7 +299,6 @@ function App() {
 
   const handleValidate = async (forcedQuery?: string, forcedCategory?: string | null) => {
     const activeQuery = forcedQuery !== undefined ? forcedQuery : query;
-    const activeCategory = forcedCategory !== undefined ? forcedCategory : selected;
 
     if (!activeQuery.trim()) return;
 
@@ -309,11 +312,11 @@ function App() {
     setActiveFoodDish(null);
 
     try {
-      const endpoint = activeCategory ? `${API_BASE}/validate/` : `${API_BASE}/planner/validate/`;
+      const endpoint = `${API_BASE}/validate/`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(activeCategory ? { category: activeCategory, query: activeQuery.trim() } : { query: activeQuery.trim() }),
+        body: JSON.stringify({ query: activeQuery.trim() }),
       });
 
       const data = await res.json();
@@ -327,7 +330,7 @@ function App() {
           setQuestions(data.questions);
         } else {
           // If no questions, directly finalize
-          handleFinalizeProduct(activeQuery, activeCategory);
+          handleFinalizeProduct(activeQuery, null);
         }
       } else {
         setAlert({
@@ -390,13 +393,14 @@ function App() {
     }
   };
 
-  const handleOptionSelect = (questionId: number, option: string) => {
+  const handleOptionSelect = (questionId: string | number, option: string) => {
+    const key = String(questionId);
     setSelectedAnswers((prev) => {
       const next = { ...prev };
-      if (next[questionId] === option) {
-        delete next[questionId];
+      if (next[key] === option) {
+        delete next[key];
       } else {
-        next[questionId] = option;
+        next[key] = option;
       }
       return next;
     });
@@ -405,7 +409,6 @@ function App() {
   const handleFinalizeProduct = async (overrideQuery?: string | React.MouseEvent, overrideCategory?: string | null) => {
     // If overrideQuery is a mouse event, ignore it.
     const q = typeof overrideQuery === "string" ? overrideQuery : query;
-    const c = overrideCategory !== undefined && typeof overrideQuery === "string" ? overrideCategory : selected;
 
     if (!q.trim()) return;
 
@@ -416,14 +419,12 @@ function App() {
 
     const formattedAnswers = questions.map((q) => ({
       question: q.question,
-      answer: selectedAnswers[q.id] || "Skipped (No preference)",
+      answer: selectedAnswers[String(q.id)] || "Skipped (No preference)",
     }));
 
     try {
-      const endpoint = c ? `${API_BASE}/finalize/` : `${API_BASE}/planner/finalize/`;
-      const payload = c 
-        ? { category: c, query: q.trim(), answers: formattedAnswers }
-        : { query: q.trim(), answers: formattedAnswers };
+      const endpoint = `${API_BASE}/finalize/`;
+      const payload = { query: q.trim(), answers: formattedAnswers };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -435,6 +436,14 @@ function App() {
       if (res.ok && (data.exact_product || data.tracks)) {
         if (data.exact_product) {
           setFinalResult(data);
+          let prods: any[] = [];
+          if (data.swiggy_mcp) prods = data.swiggy_mcp.products;
+          else if (data.swiggy_food_mcp) prods = data.swiggy_food_mcp.products;
+          else if (data.beauty_mcp) prods = data.beauty_mcp.products;
+          else if (data.apparel_mcp) prods = data.apparel_mcp.products;
+          else if (data.swiggy_dineout_mcp) prods = data.swiggy_dineout_mcp.products;
+          setSwipeProducts(prods);
+          setShowTinderSwipe(true);
         } else if (data.tracks) {
           setPlannerResults(data);
         }
@@ -531,7 +540,6 @@ function App() {
 
   const resetAll = () => {
     setQuery("");
-    setSelected(null);
     setQuestions([]);
     setSelectedAnswers({});
     setFinalResult(null);
@@ -539,6 +547,9 @@ function App() {
     setActiveProduct(null);
     setActiveFoodDish(null);
     setAlert(null);
+    setShowTinderSwipe(false);
+    setShowFinalConfirmation(false);
+    setSwipeProducts([]);
   };
 
   return (
@@ -735,7 +746,7 @@ function App() {
                   id="search-input"
                   className="voice-input"
                   type="text"
-                  placeholder={selected ? `Search for ${CATEGORIES.find((c) => c.id === selected)?.label.toLowerCase()}...` : "Ask Trigr to find something..."}
+                  placeholder="Ask Trigr to find something..."
                   value={query}
                   style={{ width: '100%', fontSize: '1.25rem' }}
                   onChange={(e) => {
@@ -790,39 +801,8 @@ function App() {
         </div>
 
         <div className="w-full flex flex-col items-center justify-center mb-8">
-          <h2 className="text-xl font-bold text-center mt-0 w-full mb-4">Optional: Select a Category</h2>
-          <div style={{ height: '350px', width: '200vw', position: 'relative', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw' }}>
-            <CircularGallery
-              bend={3}
-              textColor="#1a1a1a"
-              borderRadius={0.05}
-              font="bold 45px 'Inter', sans-serif"
-              scrollEase={0.10}
-              items={CATEGORIES.map(cat => {
-                let img = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800";
-                if (cat.id === "groceries") img = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800";
-                if (cat.id === "table_reservation" || cat.id === "reservation") img = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800";
-                if (cat.id === "beauty") img = "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800";
-                if (cat.id === "footwear" || cat.id === "apparel") img = "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=800";
-                return { image: img, text: cat.label };
-              })}
-              onItemClick={(index) => {
-                const cat = CATEGORIES[index];
-                if (cat) {
-                  setSelected(selected === cat.id ? null : cat.id);
-                  setQuestions([]);
-                  setSelectedAnswers({});
-                  setFinalResult(null);
-                  setActiveProduct(null);
-                  setActiveFoodDish(null);
-                  setAlert(null);
-                }
-              }}
-            />
-          </div>
-          {selected && (
-            <p className="mt-4 text-accent font-bold">Selected: {CATEGORIES.find(c => c.id === selected)?.label}</p>
-          )}
+          <h2 className="text-xl font-bold text-center mt-0 w-full mb-2">Auto Category Detection Enabled</h2>
+          <p className="text-text/60 text-sm text-center">Type, speak, or use image search. AI detects category and routes to the right MCP automatically.</p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-12 w-full max-w-7xl mx-auto mt-4">
@@ -905,23 +885,30 @@ function App() {
               <div className="mcq-badge">Optional Clarifications</div>
               <h3 className="mcq-title"><ShinyText text="Narrow down what you want" /></h3>
               <p className="mcq-subtitle">
-                Answer these 4 questions to help AI zero in on your exact preference (or skip ahead).
+                Answer these questions to help AI zero in on your exact preference (or skip ahead).
               </p>
             </div>
 
             <div className="w-full">
-            <QuestionFlow 
-              questions={questions.map(q => ({
-                id: String(q.id),
-                type: "multi_choice",
+            {(() => {
+              const displayQuestions = questions.map((q, idx) => ({
+                id: q.id !== undefined ? String(q.id) : `q_${idx}`,
+                type: "single_choice",
                 question: q.question,
                 options: q.options
-              } as any))}
-              answers={Object.fromEntries(Object.entries(selectedAnswers).map(([k, v]) => [String(k), v]))}
-              onAnswer={(id, val) => handleOptionSelect(Number(id), String(val))}
-              activeQuestionId={questions.find((q) => !selectedAnswers[q.id]) ? String(questions.find((q) => !selectedAnswers[q.id])!.id) : null}
-              liveVoiceText=""
-            />
+              }));
+              const unresolved = displayQuestions.find((q) => !selectedAnswers[q.id]);
+              
+              return (
+                <QuestionFlow 
+                  questions={displayQuestions as any}
+                  answers={selectedAnswers}
+                  onAnswer={(id, val) => handleOptionSelect(id, String(val))}
+                  activeQuestionId={unresolved ? unresolved.id : null}
+                  liveVoiceText=""
+                />
+              );
+            })()}
           </div>
 
             <div className="mcq-actions">
@@ -947,7 +934,7 @@ function App() {
 
         
         {plannerResults && plannerResults.tracks && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, backgroundColor: 'var(--bg)', overflowY: 'auto' }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, backgroundColor: 'transparent', overflowY: 'auto' }}>
             <ProductSwipeView 
               tracks={plannerResults.tracks}
               goal={query}
@@ -963,553 +950,90 @@ function App() {
           </div>
         )}
 
-        {/* ── Final Result Card & Swiggy Catalog Grid ──────────────────── */}
-        {finalResult && (
+        {/* ── Tinder Swipe: Shows directly after AI identifies product ──── */}
+        {finalResult && showTinderSwipe && swipeProducts.length > 0 && (
           <section className="results-container">
-            {/* AI Summary Card */}
+            {/* Small pill showing what AI found */}
+            <div className="flex flex-col items-center mb-6">
+              <span className="result-badge mb-2">🎯 Found: {finalResult.exact_product}</span>
+              <p className="text-text/50 text-xs font-['Space_Mono'] text-center">Swipe ❤️ to add to cart · Swipe ✕ to skip</p>
+            </div>
+            <TinderSwipe 
+              products={swipeProducts} 
+              onSwipeRight={(prod) => {
+                handleAddToCart(prod.id, prod.name, prod.price, 1, prod.brand || "AI Product", prod.url);
+              }}
+              onSwipeLeft={(prod) => {
+                console.log("Passed on", prod.name);
+              }}
+              onComplete={() => {
+                setShowTinderSwipe(false);
+                setShowFinalConfirmation(true);
+              }}
+            />
+          </section>
+        )}
+
+        {/* ── No products found fallback ─────────────────────────────────── */}
+        {finalResult && !showTinderSwipe && !showFinalConfirmation && swipeProducts.length === 0 && (
+          <section className="results-container">
             <div className="result-card">
               <div className="result-badge">🎯 AI Identified Exact Want</div>
               <h2 className="result-title">{finalResult.exact_product}</h2>
               <p className="result-summary">{finalResult.summary}</p>
-
-              {finalResult.key_attributes && finalResult.key_attributes.length > 0 && (
-                <div className="result-tags">
-                  {finalResult.key_attributes.map((attr, i) => (
-                    <span key={i} className="result-tag">
-                      #{attr}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="console-notice">
-                <span>💻</span> Output logged to Developer Console (`console.log`)
-              </div>
+              <p className="text-amber-400 mt-4 text-sm font-['Space_Mono']">⚠️ No products returned from MCP. Try a different query.</p>
             </div>
-
-            {/* ✨ Beauty MCP Section */}
-            {finalResult.beauty_mcp && (
-              <section className="swiggy-section">
-                <div className="swiggy-header">
-                  <div className="swiggy-title-group">
-                    <span className="swiggy-logo">✨</span>
-                    <div>
-                      <h3 className="swiggy-heading">Beauty & Grooming Catalog</h3>
-                      <p className="swiggy-mcp-tag">
-                        Connected to <code>{finalResult.beauty_mcp.mcp_server}</code>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="swiggy-match-status">
-                    <span className="match-pill">
-                      {finalResult.beauty_mcp.is_exact_match ? "Top Recommended Products" : "Similar Brands"}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="swiggy-notice-text">
-                  {finalResult.beauty_mcp.match_notice}
-                </p>
-
-                <div className="swiggy-grid">
-                  {finalResult.beauty_mcp.products.map((prod) => {
-                    const discount =
-                      prod.original_price && prod.original_price > prod.price
-                        ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                        : null;
-
-                    return (
-                      <div
-                        key={prod.id}
-                        className="swiggy-card swiggy-card--text-focused"
-                        onClick={() => openProductModal(prod)}
-                        title="Click to view full product details"
-                      >
-                        <div className="swiggy-card-top-bar">
-                          <span className="swiggy-delivery-badge">
-                            ⚡ {prod.delivery_time || "2-3 days"}
-                          </span>
-                          {prod.is_ai_recommended && (
-                            <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-image-container">
-                          {prod.image_url ? (
-                            <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                          ) : (
-                            <div className="swiggy-card-emoji-fallback">{prod.emoji || "✨"}</div>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-body">
-                          <span className="swiggy-brand">{prod.brand}</span>
-                          <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                          <div className="swiggy-meta-pills">
-                            {prod.quantity && <span className="swiggy-pill">📦 {prod.quantity}</span>}
-                            {prod.rating && (
-                              <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                            )}
-                          </div>
-
-                          <div className="swiggy-footer">
-                            <div className="swiggy-price-wrap">
-                              <span className="swiggy-price">₹{prod.price}</span>
-                              {prod.original_price && prod.original_price > prod.price && (
-                                <>
-                                  <span className="swiggy-orig-price">
-                                    ₹{prod.original_price}
-                                  </span>
-                                  {discount && (
-                                    <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                            <button
-                              className="swiggy-add-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(prod.id, prod.name, prod.price, 1, "Shopify MCP", prod.url);
-                              }}
-                            >
-                              Add
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* 👟 Footwear & Apparel MCP Section */}
-            {finalResult.apparel_mcp && (
-              <section className="swiggy-section">
-                <div className="swiggy-header">
-                  <div className="swiggy-title-group">
-                    <span className="swiggy-logo">👟</span>
-                    <div>
-                      <h3 className="swiggy-heading">Footwear & Apparel Catalog</h3>
-                      <p className="swiggy-mcp-tag">
-                        Connected to <code>{finalResult.apparel_mcp.mcp_server}</code>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="swiggy-match-status">
-                    <span className="match-pill">
-                      {finalResult.apparel_mcp.is_exact_match ? "Top Recommended Matches" : "Similar Styles"}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="swiggy-notice-text">
-                  {finalResult.apparel_mcp.match_notice}
-                </p>
-
-                <div className="swiggy-grid">
-                  {finalResult.apparel_mcp.products.map((prod) => {
-                    const discount =
-                      prod.original_price && prod.original_price > prod.price
-                        ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                        : null;
-
-                    return (
-                      <div
-                        key={prod.id}
-                        className="swiggy-card swiggy-card--text-focused"
-                        onClick={() => openProductModal(prod)}
-                        title="Click to view full product details"
-                      >
-                        <div className="swiggy-card-top-bar">
-                          <span className="swiggy-delivery-badge">
-                            ⚡ {prod.delivery_time || "3-5 days"}
-                          </span>
-                          {prod.is_ai_recommended && (
-                            <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-image-container">
-                          {prod.image_url ? (
-                            <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                          ) : (
-                            <div className="swiggy-card-emoji-fallback">{prod.emoji || "👟"}</div>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-body">
-                          <span className="swiggy-brand">{prod.brand}</span>
-                          <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                          <div className="swiggy-meta-pills">
-                            {prod.quantity && <span className="swiggy-pill">👕 {prod.quantity}</span>}
-                            {prod.rating && (
-                              <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                            )}
-                          </div>
-
-                          <div className="swiggy-footer">
-                            <div className="swiggy-price-wrap">
-                              <span className="swiggy-price">₹{prod.price}</span>
-                              {prod.original_price && prod.original_price > prod.price && (
-                                <>
-                                  <span className="swiggy-orig-price">
-                                    ₹{prod.original_price}
-                                  </span>
-                                  {discount && (
-                                    <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                            <button
-                              className="swiggy-add-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(prod.id, prod.name, prod.price, 1, "Shopify Apparel", prod.url);
-                              }}
-                            >
-                              Add
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* 🍕 Swiggy Food MCP Section (Only for Food Category) */}
-            {finalResult.swiggy_food_mcp && (
-              <section className="swiggy-section">
-                <div className="swiggy-header">
-                  <div className="swiggy-title-group">
-                    <span className="swiggy-logo">🍕</span>
-                    <div>
-                      <h3 className="swiggy-heading">Swiggy Food Delivery Catalog</h3>
-                      <p className="swiggy-mcp-tag">
-                        Connected to <code>mcp.swiggy.com/food</code>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="swiggy-match-status">
-                    <span className="match-pill">
-                      {finalResult.swiggy_food_mcp.is_exact_match ? "Top Recommended Dishes" : "Similar Restaurants"}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="swiggy-notice-text">
-                  {finalResult.swiggy_food_mcp.match_notice} (Click any dish card to view restaurant specs)
-                </p>
-
-                {/* Swiggy Food Dishes Grid */}
-                <div className="swiggy-grid">
-                  {finalResult.swiggy_food_mcp.products.map((dish) => {
-                    const discount =
-                      dish.original_price && dish.original_price > dish.price
-                        ? Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)
-                        : null;
-
-                    return (
-                      <div
-                        key={dish.id}
-                        className="swiggy-card swiggy-card--text-focused"
-                        onClick={() => openFoodModal(dish)}
-                        title="Click to view full restaurant & dish details"
-                      >
-                        {/* Top Speed & Veg/Non-Veg Header */}
-                        <div className="swiggy-card-top-bar">
-                          <span className="swiggy-delivery-badge">
-                            ⚡ {dish.delivery_time}
-                          </span>
-                          <span className={`diet-pill ${dish.is_veg !== false ? "diet-pill--veg" : "diet-pill--nonveg"}`}>
-                            {dish.is_veg !== false ? "🟢 Pure Veg" : "🔴 Non-Veg"}
-                          </span>
-                          {dish.is_ai_recommended && (
-                            <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-image-container">
-                          {dish.image_url ? (
-                            <img src={dish.image_url} alt={dish.name} className="swiggy-card-img" />
-                          ) : (
-                            <div className="swiggy-card-emoji-fallback">{dish.emoji || "🍽️"}</div>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-body">
-                          <span className="swiggy-brand">{dish.restaurant}</span>
-                          <h4 className="swiggy-prod-name">{dish.name}</h4>
-
-                          <div className="swiggy-meta-pills">
-                            {dish.portion && <span className="swiggy-pill">🍽️ {dish.portion}</span>}
-                            {dish.cuisine && <span className="swiggy-pill">🍲 {dish.cuisine}</span>}
-                            {dish.rating && (
-                              <span className="swiggy-pill swiggy-pill--star">⭐ {dish.rating}</span>
-                            )}
-                          </div>
-
-                          <div className="swiggy-feature-tags">
-                            <span className="feature-tag">🔥 Best Seller</span>
-                            <span className="feature-tag">⚡ Swiggy Express</span>
-                          </div>
-
-                          <div className="swiggy-footer">
-                            <div className="swiggy-price-wrap">
-                              <span className="swiggy-price">₹{dish.price}</span>
-                              {dish.original_price && dish.original_price > dish.price && (
-                                <>
-                                  <span className="swiggy-orig-price">
-                                    ₹{dish.original_price}
-                                  </span>
-                                  {discount && (
-                                    <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-
-                            <button
-                              className="swiggy-add-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(dish.id, dish.name, dish.price, 1, "Swiggy Food", dish.url);
-                              }}
-                            >
-                              ORDER +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* 🛒 Swiggy Instamart Grocery Section (Only for Groceries Category) */}
-            {finalResult.swiggy_mcp && (
-              <section className="swiggy-section">
-                <div className="swiggy-header">
-                  <div className="swiggy-title-group">
-                    <span className="swiggy-logo">⚡</span>
-                    <div>
-                      <h3 className="swiggy-heading">Swiggy Instamart Catalog</h3>
-                      <p className="swiggy-mcp-tag">
-                        Connected to <code>mcp.swiggy.com/im</code>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="swiggy-match-status">
-                    <span className="match-pill">
-                      {finalResult.swiggy_mcp.is_exact_match ? "Exact & Related Items" : "Similar Items"}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="swiggy-notice-text">
-                  {finalResult.swiggy_mcp.match_notice} (Click any card to view full product details & specs)
-                </p>
-
-                {/* 5+ Grocery Products Detailed Text Grid */}
-                <div className="swiggy-grid">
-                  {finalResult.swiggy_mcp.products.map((prod) => {
-                    const discount =
-                      prod.original_price && prod.original_price > prod.price
-                        ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                        : null;
-
-                    return (
-                      <div
-                        key={prod.id}
-                        className="swiggy-card swiggy-card--text-focused"
-                        onClick={() => openProductModal(prod)}
-                        title="Click to view full product details"
-                      >
-                        {/* Top Speed & Match Header */}
-                        <div className="swiggy-card-top-bar">
-                          <span className="swiggy-delivery-badge">
-                            ⚡ {prod.delivery_time}
-                          </span>
-                          {prod.is_similar ? (
-                            <span className="swiggy-similar-badge">Similar</span>
-                          ) : (
-                            <span className="swiggy-exact-badge">Top Match</span>
-                          )}
-                          {prod.is_ai_recommended && (
-                            <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-image-container">
-                          {prod.image_url ? (
-                            <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                          ) : (
-                            <div className="swiggy-card-emoji-fallback">{prod.emoji || "🛒"}</div>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-body">
-                          <span className="swiggy-brand">{prod.brand}</span>
-                          <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                          <div className="swiggy-meta-pills">
-                            <span className="swiggy-pill">📦 {prod.quantity}</span>
-                            {prod.rating && (
-                              <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                            )}
-                            <span className="swiggy-pill swiggy-pill--stock">🟢 In Stock</span>
-                          </div>
-
-                          <div className="swiggy-feature-tags">
-                            <span className="feature-tag">🌿 Fresh Quality</span>
-                            <span className="feature-tag">⚡ Express Instamart</span>
-                          </div>
-
-                          <div className="swiggy-footer">
-                            <div className="swiggy-price-wrap">
-                              <span className="swiggy-price">₹{prod.price}</span>
-                              {prod.original_price && prod.original_price > prod.price && (
-                                <>
-                                  <span className="swiggy-orig-price">
-                                    ₹{prod.original_price}
-                                  </span>
-                                  {discount && (
-                                    <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-
-                            <button
-                              className="swiggy-add-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(prod.id, prod.name, prod.price, 1, "Swiggy Instamart", prod.url);
-                              }}
-                            >
-                              ADD +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* 🍽️ Swiggy Dineout Section (Only for Reservation Category) */}
-            {finalResult.swiggy_dineout_mcp && (
-              <section className="swiggy-section">
-                <div className="swiggy-header">
-                  <div className="swiggy-title-group">
-                    <span className="swiggy-logo">🍽️</span>
-                    <div>
-                      <h3 className="swiggy-heading">Swiggy Dineout Reservations</h3>
-                      <p className="swiggy-mcp-tag">
-                        Connected to <code>mcp.swiggy.com/dineout</code>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="swiggy-match-status">
-                    <span className="match-pill">
-                      {finalResult.swiggy_dineout_mcp.is_exact_match ? "Top Recommended Restaurants" : "Similar Restaurants"}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="swiggy-notice-text">
-                  {finalResult.swiggy_dineout_mcp.match_notice} (Click Reserve to secure a table)
-                </p>
-
-                <div className="swiggy-grid">
-                  {finalResult.swiggy_dineout_mcp.products.map((prod) => {
-                    const discount =
-                      prod.original_price && prod.original_price > prod.price
-                        ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                        : null;
-
-                    return (
-                      <div
-                        key={prod.id}
-                        className="swiggy-card swiggy-card--text-focused"
-                        title="Click to reserve table"
-                      >
-                        <div className="swiggy-card-top-bar">
-                          <span className="swiggy-delivery-badge">
-                            📍 {prod.location}
-                          </span>
-                          {prod.is_ai_recommended && (
-                            <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-image-container">
-                          {prod.image_url ? (
-                            <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                          ) : (
-                            <div className="swiggy-card-emoji-fallback">{prod.emoji || "🍽️"}</div>
-                          )}
-                        </div>
-
-                        <div className="swiggy-card-body">
-                          <span className="swiggy-brand">{prod.cuisine}</span>
-                          <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                          <div className="swiggy-meta-pills">
-                            <span className="swiggy-pill">⭐ {prod.rating}</span>
-                            <span className="swiggy-pill">{prod.table_available ? "🟢 Table Available" : "🔴 Waitlist"}</span>
-                          </div>
-
-                          <div className="swiggy-feature-tags">
-                            {prod.discount && <span className="feature-tag">🏷️ {prod.discount}</span>}
-                          </div>
-
-                          <div className="swiggy-footer">
-                            <div className="swiggy-price-wrap">
-                              <span className="swiggy-price">₹{prod.price}</span>
-                              {prod.original_price && prod.original_price > prod.price && (
-                                <>
-                                  <span className="swiggy-orig-price">
-                                    ₹{prod.original_price}
-                                  </span>
-                                  {discount && (
-                                    <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-
-                            <button
-                              className="swiggy-add-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(prod.id, prod.name, prod.price, 1, "Swiggy Dineout", prod.url);
-                              }}
-                            >
-                              Reserve
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            <button className="reset-btn" onClick={resetAll}>
-              Start New Search 🔄
-            </button>
           </section>
         )}
+
+        {/* Legacy block placeholder - keep opening tag for other existing sections */}
+        {finalResult && (
+          <section style={{display:'none'}}>
+
+          </section>
+        )}
+
+        {/* ── Final Confirmation ─────────────────────────────────────── */}
+        {showFinalConfirmation && (
+          <section className="results-container">
+            <h2 className="text-3xl font-bold font-['Oswald'] text-center text-text uppercase mb-6">🛒 Final Confirmation</h2>
+            {cartItems.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-text/60 font-['Space_Mono']">No items were added to cart.</p>
+                <button className="mt-6 reset-btn" onClick={resetAll}>Start New Search 🔄</button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl mx-auto mb-8">
+                  {cartItems.map(item => (
+                    <div key={item.id} className="border border-accent/40 bg-white dark:bg-black/80 p-5 rounded-xl flex items-center justify-between shadow-[0_0_20px_rgba(221,198,85,0.15)]">
+                      <div>
+                        <div className="text-xs text-text/50 uppercase font-['Space_Mono'] mb-1">{item.source}</div>
+                        <div className="text-lg font-bold text-text">{item.name}</div>
+                        <div className="text-accent mt-2 font-bold font-['Space_Mono']">₹{item.price} × {item.quantity}</div>
+                      </div>
+                      <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:bg-red-500/20 p-2 rounded-full transition-colors text-xl">✕</button>
+                    </div>
+                  ))}
+                </div>
+                <div className="border border-accent/40 bg-white dark:bg-black/80 p-8 rounded-xl w-full max-w-md mx-auto text-center">
+                  <div className="text-text/60 mb-2 font-['Space_Mono'] text-sm">Grand Total</div>
+                  <div className="text-5xl font-bold text-accent mb-6">₹{grandTotal}</div>
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={isProcessingPayment}
+                    className="w-full bg-accent text-bg font-bold font-['Oswald'] uppercase tracking-widest py-4 rounded-lg hover:opacity-90 transition-opacity text-lg"
+                  >
+                    {isProcessingPayment ? "Processing..." : "Confirm & Buy ✅"}
+                  </button>
+                  <button className="mt-4 w-full reset-btn" onClick={resetAll}>Start New Search 🔄</button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+
 
         {/* ── EXPANDED SWIGGY FOOD DISH MODAL ───────────────────────────── */}
         {activeFoodDish && (
