@@ -1,0 +1,11 @@
+{
+  "name": "autocart",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && ./venv/bin/python manage.py runserver 0.0.0.0:8000",
+    "dev:frontend": "cd frontend && bun run dev",
+    "dev": "bun run dev:backend & bun run dev:frontend",
+    "start": "bun run dev"
+  }
+}
