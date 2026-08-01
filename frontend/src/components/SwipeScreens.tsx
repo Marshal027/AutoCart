@@ -27,6 +27,8 @@ import {
   Bell,
 } from "lucide-react";
 import type { CartItem, CategoryTrack, Item } from "../mockData";
+import { cx } from "../utils/cx";
+import { SpotlightCard, ShinyText, SpecularButton, CurvedInput } from "./ReactBits";
 import { formatINR } from "../mockData";
 import { Background3D } from "./Background3D";
 import { SmartSavings } from "./SmartSavings";
@@ -129,10 +131,6 @@ type CategorySelection = {
 };
 
 // ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-
-function cx(...classes: Array<string | false | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 function formatConfidence(value?: number) {
   if (typeof value !== "number") return "0%";
@@ -270,7 +268,6 @@ function ProgressTimeline({ analysis, hasPlan, hasProducts }: {
 // ΓöÇΓöÇΓöÇ Question Components ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const textInputClass = "w-full border border-border-col bg-bg px-4 py-3 text-sm text-text outline-none transition-colors placeholder:text-text/35 focus:border-accent";
-const optionButtonClass = "border px-3 py-2 text-left text-sm transition-colors";
 
 const questionRenderers: Record<QuestionType, (props: RendererProps) => ReactElement> = {
   text: ({ value, onChange }) => (
@@ -398,31 +395,35 @@ function QuestionCard({ question, value, onChange, isLiveTarget, liveVoiceText }
   
   return (
     <motion.div ref={cardRef} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-      className={`border p-5 transition-colors duration-300 ${isLiveTarget ? 'border-accent bg-accent/5' : 'border-border-col bg-card-bg'}`}>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2">
-          {isLiveTarget && <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
-          <h3 className="text-base font-bold text-text">{question.question}</h3>
+      className="mb-4"
+    >
+      <SpotlightCard isLiveTarget={isLiveTarget}>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {isLiveTarget && <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
+            <h3 className="text-base font-bold text-text">
+              <ShinyText text={question.question} />
+            </h3>
+          </div>
+          <span className="shrink-0 border border-border-col px-2 py-1 font-['Space_Mono'] text-[9px] uppercase tracking-widest text-text/40">
+            Optional
+          </span>
         </div>
-        <span className="shrink-0 border border-border-col px-2 py-1 font-['Space_Mono'] text-[9px] uppercase tracking-widest text-text/40">
-          Optional
-        </span>
-      </div>
-      
-      {/* Native Renderers */}
-      {question.type !== "text" && (
-        <div className="mb-3">
-          <QuestionRenderer question={question} value={value} onChange={onChange} />
-        </div>
-      )}
-      
-      {/* Custom Answer / Voice Textbox */}
-      <input 
-        className="w-full border border-border-col bg-bg px-4 py-3 text-sm text-text outline-none placeholder:text-text/35 focus:border-accent"
-        value={customValue}
-        onChange={(e) => onChange(e.target.value)} 
-        placeholder={question.type === "text" ? "Type or speak your answer..." : "Or type/speak a custom answer..."} 
-      />
+        
+        {/* Native Renderers */}
+        {question.type !== "text" && (
+          <div className="mb-3">
+            <QuestionRenderer question={question} value={value} onChange={onChange} />
+          </div>
+        )}
+        
+        {/* Custom Answer / Voice Textbox */}
+        <CurvedInput 
+          value={customValue}
+          onChange={(e) => onChange(e.target.value)} 
+          placeholder={question.type === "text" ? "Type or speak your answer..." : "Or type/speak a custom answer..."} 
+        />
+      </SpotlightCard>
     </motion.div>
   );
 }

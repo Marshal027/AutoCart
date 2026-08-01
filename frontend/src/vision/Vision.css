@@ -1,0 +1,641 @@
+/* Vision Module Styling System */
+
+:root {
+  --v-accent: #0f6b57;
+  --v-accent-glow: rgba(15, 107, 87, 0.15);
+  --v-accent-strong: #094b3d;
+  --v-text-primary: #18130f;
+  --v-text-muted: #66574b;
+  --v-bg-card: rgba(255, 255, 255, 0.85);
+  --v-border-color: rgba(24, 19, 15, 0.12);
+  --v-shadow-subtle: 0 10px 30px rgba(48, 33, 19, 0.05);
+  --v-shadow-strong: 0 20px 50px rgba(48, 33, 19, 0.12);
+  --v-danger: #d9383a;
+  --v-warning: #e07a2c;
+  --v-success: #1b8a5a;
+}
+
+.vision-search-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border-color);
+  border-radius: 24px;
+  backdrop-filter: blur(16px);
+  box-shadow: var(--v-shadow-strong);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.vision-search-header {
+  border-bottom: 1px solid var(--v-border-color);
+  padding-bottom: 16px;
+  text-align: center;
+}
+
+.vision-search-title {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--v-text-primary);
+}
+
+.vision-search-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--v-text-muted);
+}
+
+/* Vision Capture Section */
+.vision-capture {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0b0908;
+  border: 1px solid var(--v-border-color);
+  min-height: 320px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.camera-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #000;
+}
+
+.camera-feed {
+  width: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Camera Overlay Scanner Reticle */
+.camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 84px; /* leaves room for capture controls */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.target-reticle {
+  width: 200px;
+  height: 200px;
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  position: relative;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+}
+
+.target-reticle::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 2px solid #fff;
+  border-radius: 24px;
+  opacity: 0.15;
+  animation: pulseReticle 2.5s infinite ease-in-out;
+}
+
+@keyframes pulseReticle {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.04); opacity: 0.45; }
+}
+
+/* Capture Controls Bar */
+.capture-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 84px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 100%);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 16px;
+  backdrop-filter: blur(4px);
+}
+
+.capture-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+}
+
+.capture-btn:hover {
+  transform: scale(1.08);
+  border-color: #e0eae6;
+}
+
+.capture-btn:active {
+  transform: scale(0.95);
+}
+
+.capture-btn-inner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #fff;
+  transition: background-color 0.15s ease;
+}
+
+.capture-btn:hover .capture-btn-inner {
+  background: #e0eae6;
+}
+
+/* Fallback & General Buttons */
+.fallback-container {
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  width: 100%;
+}
+
+.fallback-icon {
+  font-size: 3.5rem;
+  opacity: 0.85;
+}
+
+.fallback-container h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.fallback-message {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 420px;
+}
+
+.fallback-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.action-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.primary-btn {
+  background: var(--v-accent);
+  color: #fff;
+}
+
+.primary-btn:hover {
+  background: var(--v-accent-strong);
+  transform: translateY(-1px);
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+
+.secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Result & Layout wrapper */
+.vision-result-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.captured-preview-container {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--v-border-color);
+  max-height: 300px;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.captured-preview {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.retake-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s ease;
+}
+
+.retake-btn:hover {
+  background: #000;
+  transform: scale(1.04);
+}
+
+/* Results Display CSS */
+.vision-result {
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--v-border-color);
+  box-shadow: var(--v-shadow-subtle);
+}
+
+/* Empty State */
+.vision-result.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-graphic {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+.empty-state h3 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  color: var(--v-text-primary);
+}
+
+.empty-message {
+  margin: 0;
+  color: var(--v-text-muted);
+  font-size: 0.9rem;
+}
+
+/* Loading & Holographic Scanning CSS */
+.vision-result.loading-state {
+  padding: 48px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.scanner-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Laser scan line effect */
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--v-accent), transparent);
+  box-shadow: 0 0 12px var(--v-accent);
+  animation: scanMotion 2s infinite linear;
+  opacity: 0.8;
+}
+
+@keyframes scanMotion {
+  0% { top: -20px; }
+  50% { top: 120px; }
+  100% { top: -20px; }
+}
+
+.spinner-ring {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(15, 107, 87, 0.1);
+  border-radius: 50%;
+  position: relative;
+  margin-bottom: 16px;
+  animation: spin 1.2s infinite linear;
+}
+
+.spinner-segment {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 3px solid transparent;
+  border-top-color: var(--v-accent);
+  border-radius: 50%;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.vision-result h4 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--v-text-primary);
+}
+
+.loading-subtext {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--v-text-muted);
+}
+
+/* Error State */
+.vision-result.error-state {
+  text-align: center;
+  padding: 32px 24px;
+  border-color: rgba(217, 56, 58, 0.2);
+  background: rgba(217, 56, 58, 0.03);
+}
+
+.error-badge {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.vision-result.error-state h3 {
+  margin: 0 0 8px;
+  color: var(--v-danger);
+}
+
+.error-message {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: var(--v-text-muted);
+}
+
+.retry-btn {
+  background: var(--v-danger);
+  color: #fff;
+}
+
+.retry-btn:hover {
+  background: #b52c2e;
+}
+
+/* Success Result Details Card */
+.vision-result.success-state {
+  background: #fff;
+  border-color: var(--v-border-color);
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.result-header {
+  margin-bottom: 20px;
+}
+
+.tags-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.category-tag {
+  background: #eef4f1;
+  color: var(--v-accent-strong);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 107, 87, 0.08);
+}
+
+.confidence-tag {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.product-title {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--v-text-primary);
+}
+
+.product-brand {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--v-text-muted);
+}
+
+/* Confidence Meter Widget */
+.confidence-meter-group {
+  margin-bottom: 24px;
+  background: #fdfcf9;
+  border: 1px solid var(--v-border-color);
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.meter-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--v-text-muted);
+  margin-bottom: 8px;
+}
+
+.meter-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(24, 19, 15, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.meter-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Confidence Threshold Colors */
+.high-conf {
+  color: var(--v-success) !important;
+  background-color: var(--v-success);
+}
+.high-conf.confidence-tag {
+  background-color: rgba(27, 138, 90, 0.1);
+  border: 1px solid rgba(27, 138, 90, 0.15);
+}
+
+.med-conf {
+  color: var(--v-warning) !important;
+  background-color: var(--v-warning);
+}
+.med-conf.confidence-tag {
+  background-color: rgba(224, 122, 44, 0.1);
+  border: 1px solid rgba(224, 122, 44, 0.15);
+}
+
+.low-conf {
+  color: var(--v-danger) !important;
+  background-color: var(--v-danger);
+}
+.low-conf.confidence-tag {
+  background-color: rgba(217, 56, 58, 0.1);
+  border: 1px solid rgba(217, 56, 58, 0.15);
+}
+
+/* Metadata Grid */
+.details-table {
+  display: grid;
+  gap: 1px;
+  background: var(--v-border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--v-border-color);
+  margin-bottom: 24px;
+}
+
+.details-row {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  background: #fff;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+}
+
+.details-row:nth-child(even) {
+  background: #faf7f2;
+}
+
+.details-label {
+  font-weight: 600;
+  color: var(--v-text-muted);
+}
+
+.details-value {
+  color: var(--v-text-primary);
+}
+
+/* AI Description Box */
+.description-container {
+  background: #faf7f2;
+  border: 1px dashed var(--v-border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.description-container h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--v-accent-strong);
+}
+
+.description-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--v-text-primary);
+}
+
+/* Responsive adjustment */
+@media (max-width: 580px) {
+  .vision-search-container {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  .details-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+/* Fullscreen Mode Overrides */
+.fullscreen-mode.vision-search-container {
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  backdrop-filter: none;
+}
+
+.fullscreen-mode .vision-capture {
+  border-radius: 0;
+  border: none;
+  min-height: 100%;
+  height: 100%;
+}
+
+.fullscreen-mode .camera-container {
+  height: 100%;
+}
+
+.fullscreen-mode .camera-feed {
+  height: 100%;
+  max-height: none;
+}

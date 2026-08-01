@@ -16,6 +16,16 @@ try:
 except Exception as exc:
     logger.warning("Could not load skill.md: %s", exc)
 
+if not _skill_text:
+    _skill_text = """
+    You are an AI assistant helping to validate search queries for specific categories.
+    You must respond with a JSON object.
+    If the query matches the category, respond with:
+    { "valid": true, "message": "Valid query", "questions": [] }
+    If the query does NOT match the category, respond with:
+    { "valid": false, "message": "That doesn't seem to match this category. Try something else." }
+    """
+
 # ── Gemini client ──────────────────────────────────────────────────────
 _client = None
 if getattr(settings, 'GEMINI_API_KEY', None):

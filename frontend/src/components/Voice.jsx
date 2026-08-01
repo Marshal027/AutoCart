@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { motion } from "motion/react";
+import { cn } from "../lib/utils";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -190,15 +192,22 @@ export default function Voice() {
                 </div>
               ))}
             </div>
-            <form className="voice-input-row" onSubmit={submitTyped}>
+            <motion.form 
+              className={cn("voice-input-row")} 
+              onSubmit={submitTyped}
+              initial={{ scale: 0.98, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+            >
               <input
                 type="text"
                 placeholder='"buy me a black t-shirt"'
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
+                className={cn("voice-input")}
               />
-              <button type="submit">Send</button>
-            </form>
+              <button type="submit" className={cn("voice-submit-btn")}>Send</button>
+            </motion.form>
           </div>
         </div>
       </div>
