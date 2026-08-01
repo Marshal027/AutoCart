@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
 
-export default function Nav() {
+export default function Nav({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navRef = useRef(null);
   const tl = useRef(null);
@@ -72,6 +72,13 @@ export default function Nav() {
             <p className="mn"><a href="/">Trigr</a></p>
           </div>
         </div>
+        
+        {children && (
+          <div className="nav-center" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 2rem' }}>
+            {children}
+          </div>
+        )}
+
         <div className="menu-toggle-btn" onClick={() => setMenuOpen(!menuOpen)}>
           <div className="menu-toggle-btn-wrapper">
             <p className="mn open-label">Menu</p>

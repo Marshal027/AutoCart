@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'api',
+    'prava',
+    'shop',
 ]
 
 MIDDLEWARE = [
@@ -146,4 +148,3 @@ SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY")
 SKILL_FILE_PATH = BASE_DIR.parent / 'skill.md'
 
 CORS_ALLOW_ALL_ORIGINS = True
-

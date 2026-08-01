@@ -1,6 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import Lenis from 'lenis';
+import Nav from "./components/Nav.jsx";
 import { ProductSwipeView, QuestionFlow, useWatchlist, toggleWatchlist } from "./components/SwipeScreens";
-import { TrendingDown } from "lucide-react";
+import { ShinyText } from "./components/ReactBits";
+import CircularGallery from "./components/CircularGallery.jsx";
+import { TrendingDown, Pizza, ShoppingBag, ShoppingCart, Utensils, Sparkles, Shirt } from "lucide-react";
 import { SmartSavings } from "./components/SmartSavings";
 
 const API_BASE = "http://127.0.0.1:8000/api";
@@ -143,6 +148,8 @@ interface CartItem {
 }
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const watchlistItems = useWatchlist();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<CategoryId | null>(null);
@@ -163,6 +170,21 @@ function App() {
   // Cart & Checkout State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
+  // Smooth Scrolling
+  useEffect(() => {
+    const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+    let rafId: number;
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+    rafId = requestAnimationFrame(raf);
+    return () => {
+      lenis.destroy();
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   // Lock body scroll when SwipeView overlay is active
   useEffect(() => {
     if (plannerResults && plannerResults.tracks) {
@@ -172,6 +194,16 @@ function App() {
     }
     return () => { document.body.style.overflow = ''; };
   }, [plannerResults]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q) {
+      setQuery(q);
+      handleValidate(q, null);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search]);
   const [isCartOpenMobile, setIsCartOpenMobile] = useState<boolean>(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [selectedPayment, setSelectedPayment] = useState<"upi" | "card" | "cod">("upi");
@@ -189,13 +221,83 @@ function App() {
   const [activeTab, setActiveTab] = useState<"shopping" | "deals" | "watchlist">("shopping");
   const [listFile, setListFile] = useState<File | null>(null);
 
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
+
+  const toggleListen = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+    } else {
+      startListening();
+    }
+  };
+
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Your browser doesn't support speech recognition.");
+      return;
+    }
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      setTranscript(final || interim);
+    };
+    
+    recognition.onerror = (e: any) => {
+      console.error(e);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+      // Wait to access the latest transcript state (closure issue)
+      // A safer approach: since transcript is a state, we use effect or rely on final result.
+      // But for simplicity, we just use the event.results array above in onresult if we want it synchronously.
+    };
+    
+    recognition.start();
+  };
+
+  // We should watch for isListening to false and submit if transcript exists
+  useEffect(() => {
+    if (!isListening && transcript) {
+      setQuery(transcript);
+      handleValidate(transcript, null);
+      setTranscript(''); // Clear for next time
+    }
+  }, [isListening, transcript]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleValidate = async () => {
-    if (!query.trim()) return;
+  const handleValidate = async (forcedQuery?: string, forcedCategory?: string | null) => {
+    const activeQuery = forcedQuery !== undefined ? forcedQuery : query;
+    const activeCategory = forcedCategory !== undefined ? forcedCategory : selected;
+
+    if (!activeQuery.trim()) return;
 
     setLoading(true);
     setAlert(null);
@@ -207,22 +309,25 @@ function App() {
     setActiveFoodDish(null);
 
     try {
-      const endpoint = selected ? `${API_BASE}/validate/` : `${API_BASE}/planner/validate/`;
+      const endpoint = activeCategory ? `${API_BASE}/validate/` : `${API_BASE}/planner/validate/`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(selected ? { category: selected, query: query.trim() } : { query: query.trim() }),
+        body: JSON.stringify(activeCategory ? { category: activeCategory, query: activeQuery.trim() } : { query: activeQuery.trim() }),
       });
 
       const data = await res.json();
 
       if (data.valid) {
-        setAlert({
-          type: "success",
-          message: data.message || "Input validated! Answer clarification questions below (optional).",
-        });
-        if (data.questions && Array.isArray(data.questions)) {
+        if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+          setAlert({
+            type: "success",
+            message: data.message || "Input validated! Answer clarification questions below (optional).",
+          });
           setQuestions(data.questions);
+        } else {
+          // If no questions, directly finalize
+          handleFinalizeProduct(activeQuery, activeCategory);
         }
       } else {
         setAlert({
@@ -297,8 +402,12 @@ function App() {
     });
   };
 
-  const handleFinalizeProduct = async () => {
-    if (!query.trim()) return;
+  const handleFinalizeProduct = async (overrideQuery?: string | React.MouseEvent, overrideCategory?: string | null) => {
+    // If overrideQuery is a mouse event, ignore it.
+    const q = typeof overrideQuery === "string" ? overrideQuery : query;
+    const c = overrideCategory !== undefined && typeof overrideQuery === "string" ? overrideCategory : selected;
+
+    if (!q.trim()) return;
 
     setFinalizing(true);
     setFinalResult(null);
@@ -311,10 +420,10 @@ function App() {
     }));
 
     try {
-      const endpoint = selected ? `${API_BASE}/finalize/` : `${API_BASE}/planner/finalize/`;
-      const payload = selected 
-        ? { category: selected, query: query.trim(), answers: formattedAnswers }
-        : { query: query.trim(), answers: formattedAnswers };
+      const endpoint = c ? `${API_BASE}/finalize/` : `${API_BASE}/planner/finalize/`;
+      const payload = c 
+        ? { category: c, query: q.trim(), answers: formattedAnswers }
+        : { query: q.trim(), answers: formattedAnswers };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -324,9 +433,9 @@ function App() {
 
       const data = await res.json();
       if (res.ok && (data.exact_product || data.tracks)) {
-        if (selected) {
+        if (data.exact_product) {
           setFinalResult(data);
-        } else {
+        } else if (data.tracks) {
           setPlannerResults(data);
         }
         setAlert({
@@ -572,31 +681,105 @@ function App() {
         </div>
       )}
 
-      <main className="container">
-        {/* Logo / Header */}
-        <header className="header">
-          <div className="header-top">
-            <span className="header__icon">⚡</span>
+      <Nav>
+        {/* Cart Button in Navbar */}
+        <div className="flex items-center gap-4 mr-4 hidden md:flex" style={{ marginLeft: 'auto' }}>
+          {totalCartCount > 0 && (
+            <div
+              className="cart-badge"
+              onClick={() => setIsCartOpenMobile(true)}
+              style={{ cursor: "pointer", background: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '20px' }}
+            >
+              🛒 <span style={{ marginLeft: '4px', fontWeight: 'bold' }}>{totalCartCount} Items</span>
+            </div>
+          )}
+        </div>
+      </Nav>
+
+      <main className="container" style={{ paddingTop: '60px' }}>
+        
+        {/* Search Input — Below Nav */}
+        <div className="voice-bar-section compact w-full max-w-2xl mx-auto " style={{ padding: 0, background: 'transparent' }}>
+          <div className="voice-bar-container w-full" style={{ maxWidth: '100%', height: '64px' }}>
+            <button
+              type="button"
+              className="voice-btn"
+              onClick={() => navigate('/vision')}
+              style={{ marginRight: '12px' }}
+              title="Visual Search"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </button>
+            <button 
+              type="button" 
+              className={`voice-btn ${isListening ? "recording" : ""}`}
+              onClick={toggleListen}
+              style={{ marginRight: '16px' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+            </button>
             
-            {/* List Shopping Toggle */}
-            <div className={`list-shopping-toggle ${isListShopping ? "active" : ""}`} onClick={() => setIsListShopping(!isListShopping)}>
-              <div className="toggle-track">
-                <div className="toggle-thumb">
-                  <span className="toggle-icon">{isListShopping ? "📋" : "✨"}</span>
-                </div>
-              </div>
-              <span className="toggle-label">List Shopping {isListShopping ? "On" : "Off"}</span>
+            <div className="input-wrap" style={{ flex: 1 }}>
+              {isListening ? (
+                <div className="voice-input" style={{ display: 'flex', alignItems: 'center', height: '100%', fontSize: '1.25rem' }}>{transcript || 'Listening...'}</div>
+              ) : (
+                <input
+                  id="search-input"
+                  className="voice-input"
+                  type="text"
+                  placeholder={selected ? `Search for ${CATEGORIES.find((c) => c.id === selected)?.label.toLowerCase()}...` : "Ask Trigr to find something..."}
+                  value={query}
+                  style={{ width: '100%', fontSize: '1.25rem' }}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setQuestions([]);
+                    setSelectedAnswers({});
+                    setFinalResult(null);
+                    setPlannerResults(null);
+                    setActiveProduct(null);
+                    setActiveFoodDish(null);
+                    setAlert(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && questions.length === 0) handleValidate();
+                  }}
+                />
+              )}
             </div>
 
-            {totalCartCount > 0 && (
-              <div
-                className="cart-badge"
-                onClick={() => setIsCartOpenMobile(true)}
-                style={{ cursor: "pointer" }}
+            {query && (
+              <button
+                className="search-btn"
+                style={{ background: 'transparent', color: '#ef4444' }}
+                onClick={() => {
+                  setQuery("");
+                  setQuestions([]);
+                  setSelectedAnswers({});
+                  setFinalResult(null);
+                  setPlannerResults(null);
+                  setActiveProduct(null);
+                  setActiveFoodDish(null);
+                  setAlert(null);
+                }}
+                aria-label="Clear search"
               >
-                🛒 <span>{totalCartCount} Items</span>
-              </div>
+                ✕
+              </button>
             )}
+          </div>
+        </div>
+
+        {/* Secondary Toolbar */}
+        <div className="flex justify-end items-center mb-4 px-4">
+          <div className="flex items-center gap-4 md:hidden">
             <button
               className="mobile-cart-toggle-btn"
               onClick={() => setIsCartOpenMobile(!isCartOpenMobile)}
@@ -604,84 +787,90 @@ function App() {
               🛒 Cart ({totalCartCount})
             </button>
           </div>
-          <h1 className="header__title">QuikSwipe</h1>
-          <p className="header__sub">What are you looking for today?</p>
-        </header>
+        </div>
 
-        
-                {/* Search Input — Top Level Plan or Search */}
-        <div className="search-bar my-6">
-          <span className="search-bar__icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </span>
-          {isListShopping ? (
-            <input
-              id="search-input"
-              className="search-bar__input file-input"
-              type="file"
-              accept=".txt"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  setListFile(e.target.files[0]);
+        <div className="w-full flex flex-col items-center justify-center mb-8">
+          <h2 className="text-xl font-bold text-center mt-0 w-full mb-4">Optional: Select a Category</h2>
+          <div style={{ height: '350px', width: '200vw', position: 'relative', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw' }}>
+            <CircularGallery
+              bend={3}
+              textColor="#1a1a1a"
+              borderRadius={0.05}
+              font="bold 45px 'Inter', sans-serif"
+              scrollEase={0.10}
+              items={CATEGORIES.map(cat => {
+                let img = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800";
+                if (cat.id === "groceries") img = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800";
+                if (cat.id === "table_reservation" || cat.id === "reservation") img = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800";
+                if (cat.id === "beauty") img = "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800";
+                if (cat.id === "footwear" || cat.id === "apparel") img = "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=800";
+                return { image: img, text: cat.label };
+              })}
+              onItemClick={(index) => {
+                const cat = CATEGORIES[index];
+                if (cat) {
+                  setSelected(selected === cat.id ? null : cat.id);
+                  setQuestions([]);
+                  setSelectedAnswers({});
+                  setFinalResult(null);
+                  setActiveProduct(null);
+                  setActiveFoodDish(null);
                   setAlert(null);
                 }
               }}
             />
-          ) : (
-            <input
-              id="search-input"
-              className="search-bar__input"
-              type="text"
-              placeholder={selected ? `Search for ${CATEGORIES.find((c) => c.id === selected)?.label.toLowerCase()}...` : "E.g. Plan a birthday party, movie night..."}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setQuestions([]);
-                setSelectedAnswers({});
-                setFinalResult(null);
-                setPlannerResults(null);
-                setActiveProduct(null);
-                setActiveFoodDish(null);
-                setAlert(null);
-              }}
-              
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && questions.length === 0) handleValidate();
-              }}
-            />
-          )}
-          {query && (
-            <button
-              className="search-bar__clear"
-              onClick={() => {
-                setQuery("");
-                setQuestions([]);
-                setSelectedAnswers({});
-                setFinalResult(null);
-                setPlannerResults(null);
-                setActiveProduct(null);
-                setActiveFoodDish(null);
-                setAlert(null);
-              }}
-              aria-label="Clear search"
-            >
-              ✕
-            </button>
+          </div>
+          {selected && (
+            <p className="mt-4 text-accent font-bold">Selected: {CATEGORIES.find(c => c.id === selected)?.label}</p>
           )}
         </div>
 
+        <div className="flex flex-col lg:flex-row gap-12 w-full max-w-7xl mx-auto mt-4">
+          
+          {/* Main Content Area (Centered Search + Validate) */}
+          <div className="flex-1 flex flex-col items-center justify-start ">
+
+            {/* Validate Action button */}
+            {!isListShopping && query.trim() && questions.length === 0 && !finalResult && !plannerResults && (
+              <button
+                id="continue-btn"
+                className="cta-btn"
+                style={{ width: '100%', maxWidth: '280px', display: 'flex', justifyContent: 'center' }}
+                onClick={() => handleValidate()}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="cta-btn__spinner" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Validate & Continue
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Alert Banner */}
+            {alert && (
+              <div className={`alert alert--${alert.type} w-full max-w-2xl mt-4`}>
+                <span className="alert__icon">
+                  {alert.type === "success" ? "✅" : "⚠️"}
+                </span>
+                <p className="alert__text">{alert.message}</p>
+                <button
+                  className="alert__close"
+                  onClick={() => setAlert(null)}
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
 
         {/* Tab Switcher */}
         <div className="flex justify-center mb-8 border-b border-border-col">
@@ -707,124 +896,14 @@ function App() {
 
         {activeTab === 'shopping' && (
           <>
-            {/* Category Cards */}
-        <section className="categories">
-          <h2 className="categories__heading">Choose a category</h2>
 
-          <div className="categories__grid">
-            {CATEGORIES.map((cat) => {
-              const isActive = selected === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  id={`category-${cat.id}`}
-                  className={`cat-card ${isActive ? "cat-card--active" : ""} ${isListShopping ? "cat-card--disabled" : ""}`}
-                  disabled={isListShopping}
-                  onClick={() => {
-                    setSelected(isActive ? null : cat.id);
-                    setQuestions([]);
-                    setSelectedAnswers({});
-                    setFinalResult(null);
-                    setActiveProduct(null);
-                    setActiveFoodDish(null);
-                    setAlert(null);
-                  }}
-                >
-                  <span className="cat-card__icon">{cat.icon}</span>
-                  <span className="cat-card__label">{cat.label}</span>
-                  <span className="cat-card__desc">{cat.description}</span>
-
-                  <span className="cat-card__check">
-                    {isActive && !isListShopping && (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Alert Banner */}
-        {alert && (
-          <div className={`alert alert--${alert.type}`}>
-            <span className="alert__icon">
-              {alert.type === "success" ? "✅" : "⚠️"}
-            </span>
-            <p className="alert__text">{alert.message}</p>
-            <button
-              className="alert__close"
-              onClick={() => setAlert(null)}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Initial Validate Action button */}
-        {!isListShopping && query.trim() && questions.length === 0 && !finalResult && !plannerResults && (
-          <button
-            id="continue-btn"
-            className="cta-btn"
-            onClick={handleValidate}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="cta-btn__spinner" />
-                Validating Category & Fetching Questions...
-              </>
-            ) : (
-              <>
-                Validate & Continue{" "}
-                <strong>
-                  {selected ? CATEGORIES.find((c) => c.id === selected)?.label : "Event Plan"}
-                </strong>
-                <span className="cta-btn__arrow">→</span>
-              </>
-            )}
-          </button>
-        )}
-
-        {/* Process List button */}
-        {isListShopping && listFile && (
-          <button
-            className="cta-btn"
-            onClick={handleProcessList}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="cta-btn__spinner" />
-                AI parsing list & finding products via MCP...
-              </>
-            ) : (
-              <>
-                Process Shopping List ✨
-                <span className="cta-btn__arrow">→</span>
-              </>
-            )}
-          </button>
-        )}
 
         {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
         {questions.length > 0 && !finalResult && (
           <section className="mcq-section">
             <div className="mcq-header">
               <div className="mcq-badge">Optional Clarifications</div>
-              <h3 className="mcq-title">Narrow down what you want</h3>
+              <h3 className="mcq-title"><ShinyText text="Narrow down what you want" /></h3>
               <p className="mcq-subtitle">
                 Answer these 4 questions to help AI zero in on your exact preference (or skip ahead).
               </p>
@@ -868,7 +947,7 @@ function App() {
 
         
         {plannerResults && plannerResults.tracks && (
-          <div className="fixed inset-0 z-50 bg-bg overflow-y-auto">
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, backgroundColor: 'var(--bg)', overflowY: 'auto' }}>
             <ProductSwipeView 
               tracks={plannerResults.tracks}
               goal={query}
@@ -909,7 +988,7 @@ function App() {
             </div>
 
             {/* ✨ Beauty MCP Section */}
-            {selected === "beauty" && finalResult.beauty_mcp && (
+            {finalResult.beauty_mcp && (
               <section className="swiggy-section">
                 <div className="swiggy-header">
                   <div className="swiggy-title-group">
@@ -1007,7 +1086,7 @@ function App() {
             )}
 
             {/* 👟 Footwear & Apparel MCP Section */}
-            {selected === "apparel" && finalResult.apparel_mcp && (
+            {finalResult.apparel_mcp && (
               <section className="swiggy-section">
                 <div className="swiggy-header">
                   <div className="swiggy-title-group">
@@ -1105,7 +1184,7 @@ function App() {
             )}
 
             {/* 🍕 Swiggy Food MCP Section (Only for Food Category) */}
-            {selected === "food" && finalResult.swiggy_food_mcp && (
+            {finalResult.swiggy_food_mcp && (
               <section className="swiggy-section">
                 <div className="swiggy-header">
                   <div className="swiggy-title-group">
@@ -1215,7 +1294,7 @@ function App() {
             )}
 
             {/* 🛒 Swiggy Instamart Grocery Section (Only for Groceries Category) */}
-            {selected === "groceries" && finalResult.swiggy_mcp && (
+            {finalResult.swiggy_mcp && (
               <section className="swiggy-section">
                 <div className="swiggy-header">
                   <div className="swiggy-title-group">
@@ -1327,7 +1406,7 @@ function App() {
             )}
 
             {/* 🍽️ Swiggy Dineout Section (Only for Reservation Category) */}
-            {selected === "reservation" && finalResult.swiggy_dineout_mcp && (
+            {finalResult.swiggy_dineout_mcp && (
               <section className="swiggy-section">
                 <div className="swiggy-header">
                   <div className="swiggy-title-group">

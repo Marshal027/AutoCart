@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
+import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
 
 export default function VoiceBar({ compact = false }) {
   const navigate = useNavigate();
@@ -93,11 +95,29 @@ export default function VoiceBar({ compact = false }) {
   };
 
   return (
-    <div className={`voice-bar-section ${compact ? 'compact' : ''}`} ref={barRef} style={{ padding: 0, background: 'transparent' }}>
-      <form className="voice-bar-container" onSubmit={handleSubmit}>
+    <div className={cn("voice-bar-section", compact && "compact")} ref={barRef} style={{ padding: 0, background: 'transparent' }}>
+      <motion.form 
+        className={cn("voice-bar-container")} 
+        onSubmit={handleSubmit}
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <button
+          type="button"
+          className="voice-btn"
+          onClick={() => navigate('/vision')}
+          style={{ marginRight: '8px' }}
+          title="Visual Search"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </button>
         <button 
           type="button" 
-          className={`voice-btn ${isListening ? 'recording' : ''}`} 
+          className={cn("voice-btn", isListening && "recording")} 
           onClick={toggleListen}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -110,11 +130,11 @@ export default function VoiceBar({ compact = false }) {
         
         <div className="input-wrap" style={{ flex: 1 }}>
           {isListening ? (
-            <div className="voice-input">{transcript || 'Listening...'}</div>
+            <div className={cn("voice-input")}>{transcript || 'Listening...'}</div>
           ) : (
             <input 
               type="text" 
-              className="voice-input"
+              className={cn("voice-input")}
               placeholder="Ask Trigr to find something..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -124,14 +144,14 @@ export default function VoiceBar({ compact = false }) {
         </div>
 
         {(query || transcript) && (
-          <button type="submit" className="search-btn">
+          <button type="submit" className={cn("search-btn")}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
           </button>
         )}
-      </form>
+      </motion.form>
     </div>
   );
 }
