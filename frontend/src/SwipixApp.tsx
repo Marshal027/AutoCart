@@ -433,11 +433,13 @@ function App() {
     setFinalResult(null);
     setPlannerResults(null);
     setAlert(null);
-
+    
     const formattedAnswers = questions.map((q) => ({
       question: q.question,
       answer: selectedAnswers[String(q.id)] || "Skipped (No preference)",
     }));
+    
+    setQuestions([]); // Close the overlay immediately
 
     try {
       const endpoint = `${API_BASE}/planner/finalize/`;
@@ -832,12 +834,12 @@ function App() {
                 className="cta-btn"
                 style={{ width: '100%', maxWidth: '280px', display: 'flex', justifyContent: 'center' }}
                 onClick={() => handleValidate()}
-                disabled={loading}
+                disabled={loading || finalizing}
               >
-                {loading ? (
+                {(loading || finalizing) ? (
                   <>
                     <span className="cta-btn__spinner" />
-                    Processing...
+                    {finalizing ? "Building AI Plan..." : "Processing..."}
                   </>
                 ) : (
                   <>

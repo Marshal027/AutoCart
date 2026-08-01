@@ -339,6 +339,8 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
         logger.error("Groq product generation failed: %s", e)
         return []
 
+    return []
+
 
 
 def fetch_swiggy_mcp_products(query: str, answers: list) -> dict:
@@ -461,6 +463,7 @@ def fetch_beauty_mcp_products(query: str, answers: list) -> dict:
         try:
             headers = {
                 "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 "Ucp-Agent-Profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
             }
             payload = {
@@ -475,7 +478,14 @@ def fetch_beauty_mcp_products(query: str, answers: list) -> dict:
             if res.status_code == 200:
                 data = res.json()
                 if "result" in data and isinstance(data["result"], list):
-                    live_products.extend(data["result"])
+                    items = data["result"]
+                    for item in items:
+                        if not item.get("image") and not item.get("image_url"):
+                            if item.get("featured_image") and item["featured_image"].get("url"):
+                                item["image"] = item["featured_image"]["url"]
+                            elif item.get("images") and len(item["images"]) > 0:
+                                item["image"] = item["images"][0].get("src") or item["images"][0].get("url")
+                    live_products.extend(items)
             else:
                 logger.info("Beauty MCP at %s returned status %s", mcp_endpoint, res.status_code)
         except Exception as e:
@@ -509,6 +519,7 @@ def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
         try:
             headers = {
                 "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 "Ucp-Agent-Profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
             }
             payload = {
@@ -523,7 +534,14 @@ def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
             if res.status_code == 200:
                 data = res.json()
                 if "result" in data and isinstance(data["result"], list):
-                    live_products.extend(data["result"])
+                    items = data["result"]
+                    for item in items:
+                        if not item.get("image") and not item.get("image_url"):
+                            if item.get("featured_image") and item["featured_image"].get("url"):
+                                item["image"] = item["featured_image"]["url"]
+                            elif item.get("images") and len(item["images"]) > 0:
+                                item["image"] = item["images"][0].get("src") or item["images"][0].get("url")
+                    live_products.extend(items)
             else:
                 logger.info("Apparel MCP at %s returned status %s", mcp_endpoint, res.status_code)
         except Exception as e:
