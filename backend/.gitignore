@@ -4,3 +4,29 @@ frontend/env
 # or if you use .env files
 .env
 *.env
+
+# Python
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# Node
+node_modules/
+frontend/node_modules/
+bun.lock
+.env.local
+
+# Django
+*.sqlite3
+media/
+staticfiles/
+
+# General
+.DS_Store
+.vscode/
+.idea/
+*.log
