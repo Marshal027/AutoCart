@@ -1,0 +1,6 @@
+backend/env
+frontend/env
+
+# or if you use .env files
+.env
+*.env
