@@ -1,30 +1,40 @@
-node_modules/
-dist/
-.DS_Store
-*.log
-.pyc
-
-# Python
+# Python & Virtual Environments
 venv/
 backend/venv/
 __pycache__/
+*/__pycache__/
 *.pyc
 *.pyo
+*.pyd
 *.egg-info/
 .env
+*.env
+*.sqlite3
+db.sqlite3
+backend/db.sqlite3
+media/
+staticfiles/
 
-# Node
+# Node & Frontend Dependencies / Builds
 node_modules/
 frontend/node_modules/
 bun.lock
 .env.local
+dist/
+frontend/dist/
+build/
+*.timestamp-*.mjs
+vite.config.js.timestamp*
+frontend/vite.config.js.timestamp*
+test_out.css
 
-# Django
-*.sqlite3
-media/
-staticfiles/
+# Scratch & Temporary Test Files
+scratch_*.py
+test_*.py
+backend/scratch_*.py
+backend/test_*.py
 
-# General
+# System & IDE
 .DS_Store
 .vscode/
 .idea/
