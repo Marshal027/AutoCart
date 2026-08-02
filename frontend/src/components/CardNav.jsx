@@ -65,11 +65,13 @@ export default function CardNav({ items = [], children, className = "", ease = "
         <div className="card-nav-top">
           <Link className="card-nav-logo" to="/" onClick={() => setIsOpen(false)} aria-label="AutoCart home">AutoCart</Link>
           {children && <div className="card-nav-center">{children}</div>}
-          <div className="card-nav-actions">
-            <button type="button" className={`card-nav-menu ${isOpen ? "open" : ""}`} onClick={toggleMenu} aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={isOpen} style={{ color: menuColor }}>
-              <span /><span />
-            </button>
-          </div>
+          {items.length > 0 && (
+            <div className="card-nav-actions">
+              <button type="button" className={`card-nav-menu ${isOpen ? "open" : ""}`} onClick={toggleMenu} aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={isOpen} style={{ color: menuColor }}>
+                <span /><span />
+              </button>
+            </div>
+          )}
         </div>
         <div className="card-nav-content" aria-hidden={!isOpen}>
           {items.slice(0, 3).map((item, index) => (

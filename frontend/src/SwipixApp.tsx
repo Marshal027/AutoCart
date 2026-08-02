@@ -64,6 +64,18 @@ const CATEGORIES = [
     icon: "👟",
     description: "Shoes, clothing & fashion",
   },
+  {
+    id: "jewelry",
+    label: "Jewelry",
+    icon: "💎",
+    description: "Rings, necklaces & accessories",
+  },
+  {
+    id: "eyewear",
+    label: "Eyewear",
+    icon: "👓",
+    description: "Glasses, sunglasses & frames",
+  },
 ] as const;
 
 type CategoryId = (typeof CATEGORIES)[number]["id"];
@@ -157,6 +169,8 @@ interface FinalProductResult {
   swiggy_food_mcp?: SwiggyFoodMCPData;
   beauty_mcp?: SwiggyMCPData;
   apparel_mcp?: SwiggyMCPData;
+  jewelry_mcp?: SwiggyMCPData;
+  eyewear_mcp?: SwiggyMCPData;
   swiggy_dineout_mcp?: SwiggyDineoutMCPData;
 }
 
@@ -649,6 +663,8 @@ function App({ page = "home" }: { page?: ShopPage }) {
           else if (data.swiggy_food_mcp) prods = data.swiggy_food_mcp.products;
           else if (data.beauty_mcp) prods = data.beauty_mcp.products;
           else if (data.apparel_mcp) prods = data.apparel_mcp.products;
+          else if (data.jewelry_mcp) prods = data.jewelry_mcp.products;
+          else if (data.eyewear_mcp) prods = data.eyewear_mcp.products;
           else if (data.swiggy_dineout_mcp)
             prods = data.swiggy_dineout_mcp.products;
           setSwipeProducts(prods);

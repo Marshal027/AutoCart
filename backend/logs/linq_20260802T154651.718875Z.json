@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-08-02T15:46:51.718875+00:00",
+  "method": "GET",
+  "content_type": "application/octet-stream",
+  "headers": {
+    "Cookie": "<redacted>",
+    "Content-Type": "application/octet-stream"
+  },
+  "raw_body": "",
+  "parsed_body": null
+}

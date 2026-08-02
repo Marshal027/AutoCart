@@ -15,6 +15,8 @@ from .views import (
     fetch_swiggy_dineout_mcp_products,
     fetch_beauty_mcp_products,
     fetch_apparel_mcp_products,
+    fetch_jewelry_mcp_products,
+    fetch_eyewear_mcp_products,
     fetch_travel_mcp_products
 )
 
@@ -36,7 +38,7 @@ class ClarificationQuestions(BaseModel):
 
 class PlannedProduct(BaseModel):
     name: str = Field(description="Specific product/service name")
-    category: str = Field(description="Category: 'food', 'groceries', 'beauty', 'apparel', 'reservation', or 'travel'")
+    category: str = Field(description="Category: 'food', 'groceries', 'beauty', 'apparel', 'jewelry', 'eyewear', 'reservation', or 'travel'")
     reason: str = Field(description="Why this item was selected")
 
 class EventPlan(BaseModel):
@@ -121,6 +123,8 @@ Assign one of the following exact categories to each product:
 - 'food' (for prepared restaurant meals or catering, pizza, biryani)
 - 'beauty' (for makeup, grooming, skincare)
 - 'apparel' (for clothes, shoes, fashion, t-shirts)
+- 'jewelry' (for rings, necklaces, earrings, bracelets, watches, and precious or fashion jewelry)
+- 'eyewear' (for eyeglasses, sunglasses, spectacles, frames, and contact-lens accessories)
 - 'reservation' (for booking a table at a restaurant)
 - 'travel' (for booking flights, hotels, trips, or experiences)
 
@@ -162,6 +166,10 @@ User Preferences Database: {preferences}
                     mcp_data = fetch_beauty_mcp_products(item_name, item_answers)
                 elif cat in ("apparel", "fashion", "shoes", "clothing", "footwear"):
                     mcp_data = fetch_apparel_mcp_products(item_name, item_answers)
+                elif cat in ("jewelry", "jewellery", "jewels"):
+                    mcp_data = fetch_jewelry_mcp_products(item_name, item_answers)
+                elif cat in ("eyewear", "eyeglasses", "glasses", "spectacles", "sunglasses"):
+                    mcp_data = fetch_eyewear_mcp_products(item_name, item_answers)
                 elif cat in ("reservation", "dineout"):
                     mcp_data = fetch_swiggy_dineout_mcp_products(item_name, item_answers)
                 elif cat in ("travel", "flights", "hotels", "experience"):

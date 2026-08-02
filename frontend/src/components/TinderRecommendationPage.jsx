@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Bookmark, Heart, X } from "lucide-react";
+import { Bookmark, Heart, Info, X } from "lucide-react";
 import SpecularButton from "./SpecularButton.jsx";
 import { getWatchlist, toggleWatchlist } from "./SwipeScreens";
 
@@ -20,21 +20,61 @@ function normalizeItem(item, track, trackIndex, itemIndex) {
 }
 
 function ProductFace({ item, muted = false, onWatchlist, isWatchlisted = false }) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
     <div className={`tinder-product-face ${muted ? "tinder-product-face--muted" : ""}`}>
       {!muted && (
-        <button
-          type="button"
-          className={`tinder-watchlist-button ${isWatchlisted ? "tinder-watchlist-button--active" : ""}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onWatchlist?.(item);
-          }}
-          aria-label={isWatchlisted ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`}
-          title={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
-        >
-          <Bookmark size={16} fill={isWatchlisted ? "currentColor" : "none"} />
-        </button>
+        <div className="tinder-card-actions">
+          <button
+            type="button"
+            className="tinder-info-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowDetails((visible) => !visible);
+            }}
+            aria-label={`Show details for ${item.name}`}
+            title="Product details"
+          >
+            <Info size={16} />
+          </button>
+          <button
+            type="button"
+            className={`tinder-watchlist-button ${isWatchlisted ? "tinder-watchlist-button--active" : ""}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onWatchlist?.(item);
+            }}
+            aria-label={isWatchlisted ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`}
+            title={isWatchlisted ? "Remove from watchlist" : "Add to watchlist"}
+          >
+            <Bookmark size={16} fill={isWatchlisted ? "currentColor" : "none"} />
+          </button>
+        </div>
+      )}
+      {showDetails && !muted && (
+        <div className="tinder-product-details" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            className="tinder-product-details-close"
+            onClick={() => setShowDetails(false)}
+            aria-label="Close product details"
+          >
+            <X size={15} />
+          </button>
+          <span>Product details</span>
+          <h3>{item.name}</h3>
+          <dl>
+            {Object.entries(item)
+              .filter(([key, value]) => !["image", "image_url", "is_ai_recommended"].includes(key) && value !== undefined && value !== null && value !== "")
+              .map(([key, value]) => (
+                <div key={key}>
+                  <dt>{key.replaceAll("_", " ")}</dt>
+                  <dd>{typeof value === "object" ? JSON.stringify(value) : String(value)}</dd>
+                </div>
+              ))}
+          </dl>
+        </div>
       )}
       <div
         className="tinder-product-image"

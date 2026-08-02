@@ -52,6 +52,14 @@ MCP_CATEGORY_ALIASES = {
     "shoes": "apparel",
     "clothing": "apparel",
     "footwear": "apparel",
+    "jewelry": "jewelry",
+    "jewellery": "jewelry",
+    "jewels": "jewelry",
+    "eyewear": "eyewear",
+    "eyeglasses": "eyewear",
+    "glasses": "eyewear",
+    "spectacles": "eyewear",
+    "sunglasses": "eyewear",
     "travel": "travel",
     "flights": "travel",
     "hotels": "travel",
@@ -95,6 +103,18 @@ def build_mcp_call(category: str, product: str) -> dict:
             "tool": "search_products",
             "arguments": {"query": product},
         }
+    if cat == "jewelry":
+        return {
+            "mcp_server": "Shopify Jewelry Network",
+            "tool": "search_products",
+            "arguments": {"query": product},
+        }
+    if cat == "eyewear":
+        return {
+            "mcp_server": "Lenskart MCP",
+            "tool": "search_products",
+            "arguments": {"query": product},
+        }
     if cat == "travel":
         return {
             "mcp_server": "Global Travel Network",
@@ -112,7 +132,7 @@ def detect_category_and_product(query: str, answers: list | None = None) -> dict
     system_prompt = (
         "You are an MCP routing classifier for an Indian commerce assistant. "
         "Classify the user intent into exactly one category from this strict list: "
-        "food, groceries, reservation, beauty, apparel. "
+        "food, groceries, reservation, beauty, apparel, jewelry, eyewear. "
         "Also extract the most specific purchasable product/service phrase to query MCP. "
         "Respond with ONLY JSON in this shape: "
         '{"category":"food","product":"butter chicken","confidence":0.0,"reason":"..."}'
@@ -199,6 +219,12 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
     elif category == "apparel":
         schema_example = '{"id":"a1","name":"Campus Running Shoes","brand":"Campus","price":1299,"original_price":1799,"delivery_time":"3-5 days","rating":4.3,"quantity":"UK 9","emoji":"👟","is_ai_recommended":true,"description":"Lightweight breathable mesh running shoes for daily fitness"}'
         prompt = f"Generate {count} realistic Indian apparel/footwear products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
+    elif category == "jewelry":
+        schema_example = '{"id":"j1","name":"Gold-Plated Pendant Necklace","brand":"Palmonas","price":2499,"original_price":3299,"delivery_time":"3-5 days","rating":4.6,"quantity":"1 piece","emoji":"💎","is_ai_recommended":true,"description":"Elegant everyday necklace with a polished gold finish"}'
+        prompt = f"Generate {count} realistic Indian jewelry products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
+    elif category == "eyewear":
+        schema_example = '{"id":"e1","name":"Blue Light Round Frame Glasses","brand":"Lenskart","price":999,"original_price":1499,"delivery_time":"3-5 days","rating":4.5,"quantity":"1 frame","emoji":"👓","is_ai_recommended":true,"description":"Lightweight eyewear with clear blue-light filtering lenses"}'
+        prompt = f"Generate {count} realistic Indian eyewear products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
     elif category == "travel":
         schema_example = '{"id":"t1","name":"Roundtrip Flight to Goa","brand":"OctoTrip","price":8500,"original_price":10500,"delivery_time":"Instant Booking","rating":4.8,"quantity":"1 Ticket","emoji":"✈️","is_ai_recommended":true,"description":"Non-stop flight departing this weekend"}'
         prompt = f"Generate {count} realistic travel/flight options for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
@@ -455,6 +481,88 @@ def fetch_beauty_mcp_products(query: str, answers: list) -> dict:
     }
 
 
+def fetch_jewelry_mcp_products(query: str, answers: list) -> dict:
+    """Query the configured Shopify jewelry MCPs with an AI fallback."""
+    mcp_endpoints = [
+        "https://saltyjewels.myshopify.com/api/ucp/mcp",
+        "https://palmonas.myshopify.com/api/ucp/mcp",
+        "https://giva-jewelry.myshopify.com/api/ucp/mcp",
+    ]
+    live_products = []
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "AutoCart/1.0",
+        "Ucp-Agent-Profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json",
+    }
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "search_products", "arguments": {"query": query}},
+        "meta": {
+            "ucp-agent.profile": "https://shopify.dev/ucp/agent-profiles/examples/2026-04-08/valid-with-capabilities.json"
+        },
+    }
+
+    for endpoint in mcp_endpoints:
+        try:
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=3)
+            response.raise_for_status()
+            result = response.json().get("result", [])
+            if isinstance(result, dict):
+                result = result.get("products") or result.get("items") or result.get("data") or []
+            if isinstance(result, list):
+                live_products.extend(result)
+        except Exception as exc:
+            logger.info("Jewelry MCP unavailable at %s: %s", endpoint, exc)
+
+    if not live_products:
+        live_products = _ai_generate_products(query, answers, "jewelry", 5)
+    live_products = _resolve_product_images(live_products, query, "jewelry")
+    return {
+        "mcp_server": "Shopify Jewelry Network",
+        "is_exact_match": True,
+        "match_notice": f"Top {len(live_products)} jewelry picks curated for you",
+        "products": live_products,
+    }
+
+
+def fetch_eyewear_mcp_products(query: str, answers: list) -> dict:
+    """Query Lenskart's MCP with an AI fallback for eyewear searches."""
+    endpoint = "https://lenskart.com/api/mcp"
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "AutoCart/1.0",
+    }
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "search_products", "arguments": {"query": query}},
+    }
+    live_products = []
+    try:
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=3)
+        response.raise_for_status()
+        result = response.json().get("result", [])
+        if isinstance(result, dict):
+            result = result.get("products") or result.get("items") or result.get("data") or []
+        if isinstance(result, list):
+            live_products = result
+    except Exception as exc:
+        logger.info("Eyewear MCP unavailable at %s: %s", endpoint, exc)
+
+    if not live_products:
+        live_products = _ai_generate_products(query, answers, "eyewear", 5)
+    live_products = _resolve_product_images(live_products, query, "eyewear")
+    return {
+        "mcp_server": "Lenskart MCP",
+        "is_exact_match": True,
+        "match_notice": f"Top {len(live_products)} eyewear picks curated for you",
+        "products": live_products,
+    }
+
+
 def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
     """
     Queries Shopify MCPs for Footwear and Apparel items.
@@ -661,27 +769,35 @@ def finalize_product(request):
         # 2. Swiggy MCP / Shopify Integrations
         if normalized_category == "groceries":
             mcp_data = fetch_swiggy_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["swiggy_mcp"] = mcp_data
         elif normalized_category == "food":
             mcp_data = fetch_swiggy_food_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["swiggy_food_mcp"] = mcp_data
         elif normalized_category == "beauty":
             mcp_data = fetch_beauty_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["beauty_mcp"] = mcp_data
         elif normalized_category == "apparel":
             mcp_data = fetch_apparel_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["apparel_mcp"] = mcp_data
+        elif normalized_category == "jewelry":
+            mcp_data = fetch_jewelry_mcp_products(query, answers)
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
+            final_info["jewelry_mcp"] = mcp_data
+        elif normalized_category == "eyewear":
+            mcp_data = fetch_eyewear_mcp_products(query, answers)
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
+            final_info["eyewear_mcp"] = mcp_data
         elif normalized_category == "reservation":
             mcp_data = fetch_swiggy_dineout_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["swiggy_dineout_mcp"] = mcp_data
         elif normalized_category == "travel":
             mcp_data = fetch_travel_mcp_products(query, answers)
-            mcp_data["products"] = mcp_data.get("products", [])[:2]
+            mcp_data["products"] = mcp_data.get("products", [])[:5]
             final_info["travel_mcp"] = mcp_data
 
         return Response(final_info)

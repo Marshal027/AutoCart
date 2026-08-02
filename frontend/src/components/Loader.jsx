@@ -101,7 +101,7 @@ export default function Loader({ onComplete }) {
     <div className="loader-screen" ref={loaderRef}>
       <div className="loader-content">
         <div className="loader-logo" style={{ opacity: 0, transform: 'translateY(30px)' }}>
-          TRI<span>GR</span>
+          AutoCart
         </div>
         <div className="loader-tagline" style={{ opacity: 0 }}>Initializing Models</div>
         <div className="loader-line" style={{ opacity: 0 }}>

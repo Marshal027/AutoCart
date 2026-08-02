@@ -3798,6 +3798,107 @@
   transition: transform .18s ease, background .18s ease;
 }
 
+.tinder-card-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+
+.tinder-card-actions .tinder-watchlist-button {
+  position: static;
+}
+
+.tinder-info-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #ded4c9;
+  border-radius: 50%;
+  background: #fffaf5;
+  color: #a45749;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease;
+}
+
+.tinder-info-button:hover {
+  background: #f1e2dc;
+  transform: translateY(-1px);
+}
+
+.tinder-product-details {
+  position: absolute;
+  inset: 10px;
+  z-index: 6;
+  overflow: auto;
+  border-radius: 16px;
+  padding: 20px;
+  background: rgba(39, 35, 32, 0.97);
+  color: #fff8f1;
+  text-align: left;
+  box-shadow: 0 16px 35px rgba(0, 0, 0, 0.3);
+}
+
+.tinder-product-details > span {
+  color: #d9b39a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tinder-product-details h3 {
+  margin: 8px 28px 14px 0;
+  color: inherit;
+  font-size: 1.25rem;
+  font-style: normal;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+.tinder-product-details dl {
+  display: grid;
+  gap: 8px;
+}
+
+.tinder-product-details dl div {
+  display: grid;
+  grid-template-columns: 38% 62%;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+  font-size: 0.7rem;
+}
+
+.tinder-product-details dt {
+  color: #d9b39a;
+  text-transform: capitalize;
+}
+
+.tinder-product-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #fff8f1;
+}
+
+.tinder-product-details-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: transparent;
+  color: #fff8f1;
+  cursor: pointer;
+}
+
 .tinder-watchlist-button:hover,
 .tinder-watchlist-button--active {
   background: #f1e2dc;
