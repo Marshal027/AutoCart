@@ -13,8 +13,8 @@ def _read_json(request):
 
     try:
         return json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError:
-        return {}
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('Request body must be valid JSON.') from error
 
 
 def _to_json_response(result):
@@ -26,14 +26,13 @@ def session(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST is allowed.'}, status=405)
 
-    payload = _read_json(request)
-
     try:
+        payload = _read_json(request)
         return _to_json_response(create_session(payload))
     except PravaAPIError as error:
         return JsonResponse(error.payload or {'error': str(error)}, status=error.status_code or 502)
     except (ValueError, PravaError) as error:
-        return JsonResponse({'error': str(error)}, status=500)
+        return JsonResponse({'error': str(error)}, status=400)
 
 
 @csrf_exempt
@@ -68,10 +67,10 @@ def sessions(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST is allowed.'}, status=405)
 
-    payload = _read_json(request)
     try:
+        payload = _read_json(request)
         return _to_json_response(create_sessions(payload))
     except PravaAPIError as error:
         return JsonResponse(error.payload or {'error': str(error)}, status=error.status_code or 502)
     except (ValueError, PravaError) as error:
-        return JsonResponse({'error': str(error)}, status=500)
+        return JsonResponse({'error': str(error)}, status=400)

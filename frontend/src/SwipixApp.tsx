@@ -310,17 +310,13 @@ function App({ page = "home" }: { page?: ShopPage }) {
     useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [paymentFailure, setPaymentFailure] = useState<string | null>(null);
-  const [hasPravaCard, setHasPravaCard] = useState<boolean>(
-    () =>
-      typeof window !== "undefined" &&
-      window.localStorage.getItem("prava-card-enrolled") === "true",
-  );
   const [pravaSessions, setPravaSessions] = useState<PravaSessionGroup[]>([]);
   const [activePravaSessionIndex, setActivePravaSessionIndex] = useState(0);
   const [pravaPaymentStatus, setPravaPaymentStatus] = useState(
     "Preparing secure payment...",
   );
   const reportedPravaSessions = useRef(new Set<string>());
+  const reportingPravaSessions = useRef(new Set<string>());
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -328,6 +324,15 @@ function App({ page = "home" }: { page?: ShopPage }) {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [flowEvents, setFlowEvents] = useState<any[]>([]);
+  const paymentStateRef = useRef(new Map<string, string>());
+
+  const logFlow = (title: string, message: string, level: "info" | "success" | "warning" | "error" = "info") => {
+    setFlowEvents((current) => [
+      ...current.slice(-49),
+      { id: `${Date.now()}-${Math.random()}`, title, message, level, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) },
+    ]);
+  };
 
   useEffect(() => {
     const activeSession = pravaSessions[activePravaSessionIndex];
@@ -339,6 +344,10 @@ function App({ page = "home" }: { page?: ShopPage }) {
         const result = await pollPravaPaymentResult(activeSession.session_id!);
         if (cancelled) return;
         const paymentState = String(result.status || "").toLowerCase();
+        if (paymentStateRef.current.get(activeSession.session_id!) !== paymentState) {
+          paymentStateRef.current.set(activeSession.session_id!, paymentState);
+          logFlow("Prava status", `${activeSession.merchant_name}: ${paymentState || "unknown"}.`);
+        }
         if (paymentState === "awaiting_result") {
           const transaction =
             result.transactions?.find(
@@ -347,28 +356,27 @@ function App({ page = "home" }: { page?: ShopPage }) {
             ) || result.transactions?.[0];
           const lineItem = transaction?.line_items?.[0];
           const transactionReference = lineItem?.txn_ref_id;
-          const isSandboxSession = activeSession.iframe_url?.includes(
-            "sandbox.collect.prava.space",
-          );
           if (
             transactionReference &&
-            isSandboxSession &&
-            !reportedPravaSessions.current.has(activeSession.session_id!)
+            !reportedPravaSessions.current.has(activeSession.session_id!) &&
+            !reportingPravaSessions.current.has(activeSession.session_id!)
           ) {
-            reportedPravaSessions.current.add(activeSession.session_id!);
-            await reportPravaPaymentStatus(activeSession.session_id!, {
-              txn_ref_id: transactionReference,
-              txn_status: "APPROVED",
-              authorization_code: "OK123",
-              response_code: "00",
-            });
-            setPravaPaymentStatus(
-              "Payment approved. Finalizing the merchant order...",
-            );
-          } else if (transactionReference && !isSandboxSession) {
-            setPravaPaymentStatus(
-              "Payment authorization received. Merchant confirmation is required for live checkout.",
-            );
+            reportingPravaSessions.current.add(activeSession.session_id!);
+            try {
+              await reportPravaPaymentStatus(activeSession.session_id!, {
+                txn_ref_id: transactionReference,
+                txn_status: "APPROVED",
+                authorization_code: "OK123",
+                response_code: "00",
+              });
+              reportedPravaSessions.current.add(activeSession.session_id!);
+              logFlow("Payment reported", `${activeSession.merchant_name}: approved result sent to Prava.`, "success");
+              setPravaPaymentStatus(
+                "Payment approved. Finalizing the merchant order...",
+              );
+            } finally {
+              reportingPravaSessions.current.delete(activeSession.session_id!);
+            }
           }
         } else if (paymentState === "completed") {
           if (activePravaSessionIndex + 1 < pravaSessions.length) {
@@ -379,6 +387,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
           } else {
             setIsProcessingPayment(false);
             setOrderSuccess(true);
+            logFlow("Payment complete", "All MCP merchant sessions completed successfully.", "success");
             setPravaPaymentStatus("All merchant payments completed.");
             updateCartItems([]);
           }
@@ -389,6 +398,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
               result.error?.message ||
               "A merchant payment was declined. Please try again.",
           );
+          logFlow("Payment failed", `${activeSession.merchant_name}: ${result.message || result.error?.message || "declined"}.`, "error");
           setPravaPaymentStatus("Payment declined.");
         }
       } catch (error) {
@@ -398,6 +408,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
               ? error.message
               : "Unable to read payment status.";
           setPaymentFailure(message);
+          logFlow("Payment monitor error", message, "error");
           setIsProcessingPayment(false);
           setPravaPaymentStatus(message);
         }
@@ -753,14 +764,23 @@ function App({ page = "home" }: { page?: ShopPage }) {
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
+    logFlow("Checkout requested", `Starting checkout for ${cartItems.length} cart item${cartItems.length === 1 ? "" : "s"}.`);
     let savedBudget = 0;
     try {
       savedBudget = Number(JSON.parse(localStorage.getItem("autocart-prava-settings") || "{}").budget || 0);
     } catch {
       savedBudget = 0;
     }
-    if (savedBudget > 0 && grandTotal > savedBudget) {
+    if (savedBudget <= 0) {
+      setPaymentFailure("Set a maximum checkout budget in Prava settings before paying.");
+      logFlow("Budget blocked", "No payment session created because a maximum checkout budget is not set.", "warning");
+      setIsProcessingPayment(false);
+      setIsCheckoutOpen(true);
+      return;
+    }
+    if (grandTotal > savedBudget) {
       setPaymentFailure(`This order is ₹${grandTotal}, above your ₹${savedBudget} AutoCart budget limit.`);
+      logFlow("Budget blocked", `₹${grandTotal} exceeds the configured ₹${savedBudget} limit.`, "warning");
       setIsProcessingPayment(false);
       setIsCheckoutOpen(true);
       return;
@@ -770,6 +790,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
     setPaymentFailure(null);
     setIsCheckoutOpen(false);
     setPravaPaymentStatus("Creating secure merchant sessions...");
+    logFlow("Creating sessions", "Requesting one Prava session for each MCP merchant.");
     try {
       const guestId =
         window.localStorage.getItem("prava-sandbox-user-id") ||
@@ -797,11 +818,12 @@ function App({ page = "home" }: { page?: ShopPage }) {
         ),
         currency: "INR",
         amount: grandTotal,
-        callback_url: window.location.origin,
+        budget_limit: savedBudget,
         userId: guestId,
         userEmail: "guest@example.com",
       });
       setPravaSessions(response.sessions);
+      logFlow("Sessions created", `${response.session_count} Prava merchant session${response.session_count === 1 ? "" : "s"} created.`, "success");
       setActivePravaSessionIndex(0);
       setIsCheckoutOpen(true);
       setPravaPaymentStatus(
@@ -812,6 +834,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
       setPaymentFailure(
         error instanceof Error ? error.message : "Checkout failed.",
       );
+      logFlow("Session creation failed", error instanceof Error ? error.message : "Checkout failed.", "error");
       setIsCheckoutOpen(true);
     }
   };
@@ -1896,11 +1919,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                     ) : pravaSessions.length > 0 ? (
                       <div className="modal-details-container">
                         <div className="checkout-header">
-                          <h2 className="checkout-title">
-                            {hasPravaCard
-                              ? "Confirm secure payment"
-                              : "Set up secure payment"}
-                          </h2>
+                          <h2 className="checkout-title">Secure Prava payment</h2>
                           <span className="cart-header__badge">
                             {activePravaSessionIndex + 1} /{" "}
                             {pravaSessions.length} merchants
@@ -1910,30 +1929,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
                           {pravaPaymentStatus}
                         </p>
                         <p className="checkout-address-text">
-                          {hasPravaCard
-                            ? "Your saved Prava card is being used for this purchase. Approve the secure request and merchant payments will be coordinated automatically."
-                            : "Add your card once in Prava's secure light form. Your card details never reach Autocart, and future purchases can use the saved card."}
+                          Prava securely collects card details on the first payment and lets returning customers choose a saved card. Approve each merchant payment on Prava&apos;s secure page.
                         </p>
-                        {pravaSessions[activePravaSessionIndex]?.iframe_url &&
-                        pravaSessions[activePravaSessionIndex]
-                          ?.session_token ? (
+                        {pravaSessions[activePravaSessionIndex]?.iframe_url ? (
                           <PravaPaymentFrame
                             session={pravaSessions[activePravaSessionIndex]}
-                            onSuccess={() => {
-                              window.localStorage.setItem(
-                                "prava-card-enrolled",
-                                "true",
-                              );
-                              setHasPravaCard(true);
-                              setPravaPaymentStatus(
-                                "Payment authorization received. Finalizing...",
-                              );
-                            }}
-                            onError={(message) => {
-                              setIsProcessingPayment(false);
-                              setPaymentFailure(message);
-                              setPravaPaymentStatus(message);
-                            }}
                           />
                         ) : (
                           <div
@@ -2124,6 +2124,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
           onCheckout={handlePlaceOrder}
           onContinueShopping={() => navigate("/shop/products")}
           isProcessingPayment={isProcessingPayment}
+          flowEvents={flowEvents}
         />
       )}
 
@@ -2131,21 +2132,10 @@ function App({ page = "home" }: { page?: ShopPage }) {
         <PravaCheckoutOverlay
           sessions={pravaSessions}
           activeSessionIndex={activePravaSessionIndex}
-          hasPravaCard={hasPravaCard}
           status={pravaPaymentStatus}
           orderSuccess={orderSuccess}
           paymentFailure={paymentFailure}
           onClose={closeCheckout}
-          onCardSuccess={() => {
-            window.localStorage.setItem("prava-card-enrolled", "true");
-            setHasPravaCard(true);
-            setPravaPaymentStatus("Payment authorization received. Finalizing...");
-          }}
-          onPaymentError={(message) => {
-            setIsProcessingPayment(false);
-            setPaymentFailure(message);
-            setPravaPaymentStatus(message);
-          }}
         />
       )}
     </div>

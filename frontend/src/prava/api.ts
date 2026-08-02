@@ -12,7 +12,7 @@ export interface PravaSessionRequest {
   items: CartItemPayload[];
   currency: string;
   amount: number;
-  callback_url?: string;
+  budget_limit?: number;
   userId: string;
   userEmail: string;
 }
@@ -60,11 +60,7 @@ export async function createPravaSession(
   }
 
   if (!response.ok) {
-    const backendMessage = typeof data.error === 'string'
-      ? data.error
-      : typeof data.error?.message === 'string'
-        ? data.error.message
-        : rawBody;
+    const backendMessage = getErrorMessage(data, rawBody);
     throw new Error(
       backendMessage
         ? `Prava session failed (${response.status}): ${backendMessage}`
@@ -86,6 +82,20 @@ export interface PravaSessionsResponse {
   sessions: PravaSessionGroup[];
 }
 
+function getErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' ? message : fallback;
+}
+
 export async function createPravaSessions(
   payload: PravaSessionRequest,
 ): Promise<PravaSessionsResponse> {
@@ -96,12 +106,11 @@ export async function createPravaSessions(
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof data.error === 'string'
-      ? data.error
-      : typeof data.error?.message === 'string'
-        ? data.error.message
-        : 'Could not create Prava merchant sessions.';
+    const message = getErrorMessage(data, 'Could not create Prava merchant sessions.');
     throw new Error(`Prava checkout failed (${response.status}): ${message}`);
+  }
+  if (!Array.isArray(data.sessions)) {
+    throw new Error('Prava checkout returned no merchant sessions.');
   }
   return data as PravaSessionsResponse;
 }
@@ -112,7 +121,7 @@ export async function pollPravaPaymentResult(sessionId: string): Promise<Record<
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(typeof data.error === 'string' ? data.error : 'Could not read Prava payment status.');
+    throw new Error(getErrorMessage(data, 'Could not read Prava payment status.'));
   }
   return data;
 }
@@ -128,8 +137,7 @@ export async function reportPravaPaymentStatus(
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof data.error === 'string' ? data.error : data.error?.message || 'Could not report Prava payment status.';
-    throw new Error(message);
+    throw new Error(getErrorMessage(data, 'Could not report Prava payment status.'));
   }
   return data;
 }

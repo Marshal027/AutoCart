@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion } from "motion/react";
 import SpecularButton from "./SpecularButton.jsx";
-import { AnimateNumber } from "motion-plus/react";
+import ActivityPanel from "./ActivityPanel.jsx";
 
 export default function CartPage({
   cartItems = [],
@@ -15,6 +15,7 @@ export default function CartPage({
   onCheckout,
   onContinueShopping,
   isProcessingPayment = false,
+  flowEvents = [],
 }) {
   const totalItems = useMemo(
     () =>
@@ -36,7 +37,7 @@ export default function CartPage({
           <p>
             {totalItems ? (
               <>
-                <AnimateNumber>{totalItems}</AnimateNumber> item
+                {totalItems} item
                 {totalItems === 1 ? "" : "s"} from your selected merchants
               </>
             ) : (
@@ -111,7 +112,7 @@ export default function CartPage({
                         −
                       </button>
                       <strong>
-                        <AnimateNumber>{item.quantity}</AnimateNumber>
+                        {item.quantity}
                       </strong>
                       <button
                         type="button"
@@ -122,9 +123,7 @@ export default function CartPage({
                       </button>
                     </div>
                     <strong className="cart-page-item-total">
-                      <AnimateNumber prefix="₹">
-                        {item.price * item.quantity}
-                      </AnimateNumber>
+                      ₹{item.price * item.quantity}
                     </strong>
                     <button
                       type="button"
@@ -149,7 +148,7 @@ export default function CartPage({
               <div>
                 <span>Items subtotal</span>
                 <strong>
-                  <AnimateNumber prefix="₹">{subtotal}</AnimateNumber>
+                  ₹{subtotal}
                 </strong>
               </div>
               <div>
@@ -161,14 +160,14 @@ export default function CartPage({
               <div>
                 <span>Taxes & packaging</span>
                 <strong>
-                  <AnimateNumber prefix="₹">{taxesAndFees}</AnimateNumber>
+                  ₹{taxesAndFees}
                 </strong>
               </div>
             </div>
             <div className="cart-page-grand-total">
               <span>Grand total</span>
               <strong>
-                <AnimateNumber prefix="₹">{grandTotal}</AnimateNumber>
+                ₹{grandTotal}
               </strong>
             </div>
             <SpecularButton
@@ -184,7 +183,7 @@ export default function CartPage({
                 <>
                   Proceed to pay{" "}
                   <span>
-                    <AnimateNumber prefix="₹">{grandTotal}</AnimateNumber> →
+                    ₹{grandTotal} →
                   </span>
                 </>
               )}
@@ -196,6 +195,7 @@ export default function CartPage({
           </aside>
         </div>
       )}
+      <div className="cart-page-activity"><ActivityPanel events={flowEvents} /></div>
     </motion.main>
   );
 }

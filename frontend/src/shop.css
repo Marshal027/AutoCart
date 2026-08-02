@@ -1681,6 +1681,34 @@
   font-weight: 600;
 }
 
+.prava-hosted-checkout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: #17202b;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.prava-hosted-checkout-button:hover {
+  background: #245b87;
+  transform: translateY(-1px);
+}
+
+.prava-hosted-checkout-note {
+  max-width: 560px;
+  margin: 12px 0 0;
+  color: #667085;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .prava-payment-frame-container {
   width: 100%;
   height: min(760px, calc(100vh - 150px));
@@ -1692,6 +1720,15 @@
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
 }
 
+.prava-hosted-frame {
+  display: block;
+  width: 100%;
+  height: min(760px, calc(100vh - 150px));
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: #fff;
+}
+
 @media (max-width: 640px) {
   .prava-payment-modal {
     padding: 18px !important;
@@ -1700,6 +1737,10 @@
   .prava-payment-frame-container {
     height: calc(100vh - 190px);
     min-height: 560px;
+  }
+
+  .prava-hosted-frame {
+    height: calc(100vh - 190px);
   }
 }
 
@@ -2899,6 +2940,143 @@
   font-size: 0.76rem !important;
   font-weight: 500 !important;
   text-align: center;
+}
+
+.cart-page-activity {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 22px;
+}
+
+.activity-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d8c5b8;
+  border-radius: 999px;
+  padding: 10px 15px;
+  background: #fffaf4;
+  color: #4c3d36;
+  cursor: pointer;
+  font-family: "formula-narrow", sans-serif;
+  font-weight: 800;
+}
+
+.activity-toggle span {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f1e2dc;
+  color: #984f43;
+  font-size: .7rem;
+}
+
+.activity-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  border: 0;
+  background: rgba(21, 17, 35, .28);
+  cursor: pointer;
+}
+
+.activity-panel {
+  position: fixed;
+  top: 24px;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1301;
+  display: flex;
+  width: min(430px, calc(100vw - 48px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e7ddd4;
+  border-radius: 20px;
+  background: #fffdf9;
+  box-shadow: 0 24px 70px rgba(25, 20, 32, .24);
+}
+
+.activity-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 22px 14px;
+  border-bottom: 1px solid #eee5dd;
+}
+
+.activity-panel-header h2 {
+  margin-top: 5px;
+  color: #24211f;
+  font-size: 1.8rem;
+}
+
+.activity-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #dfd4ca;
+  border-radius: 50%;
+  background: #fff;
+  color: #4c3d36;
+  cursor: pointer;
+}
+
+.activity-panel-note {
+  margin: 0;
+  padding: 13px 22px;
+  background: #f7f9fc;
+  color: #667085;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.activity-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.activity-event {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  padding: 12px 4px;
+  border-bottom: 1px solid #f0eae4;
+}
+
+.activity-event-icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef3f7;
+  color: #356987;
+}
+
+.activity-event--success .activity-event-icon { background: #e6f6ed; color: #176b4b; }
+.activity-event--warning .activity-event-icon { background: #fff5dc; color: #946d16; }
+.activity-event--error .activity-event-icon { background: #fff0f1; color: #c93648; }
+
+.activity-event-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-event-top strong { color: #24211f; font-size: .82rem; }
+.activity-event-top time { color: #98a2b3; font-size: .67rem; white-space: nowrap; }
+.activity-event p { margin-top: 4px; color: #667085; font-size: .76rem; line-height: 1.4; }
+.activity-empty { padding: 20px 4px; color: #98a2b3; font-size: .82rem; }
+
+.activity-panel-footer {
+  border-top: 1px solid #eee5dd;
+  padding: 12px 22px;
+  color: #98a2b3;
+  font-size: .68rem;
 }
 
 /* ── Sidebar drawer reliability ───────────────────────────── */

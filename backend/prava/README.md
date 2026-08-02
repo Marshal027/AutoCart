@@ -36,18 +36,17 @@ You must provide the correct API keys and URLs to connect to the Prava platform.
    ```env
    PRAVA_BACKEND_URL=https://sandbox.api.prava.space
    MERCHANT_SECRET_KEY=your_secret_key_here
+   # Optional in production; must be HTTPS.
+   # PRAVA_CALLBACK_URL=https://your-domain.example/prava/complete
    ```
-2. **Frontend Keys (if applicable):** The frontend will need the publishable key in its own `.env`:
-   ```env
-   VITE_PRAVA_PUBLISHABLE_KEY=your_publishable_key_here
-   ```
+2. **Frontend:** The main AutoCart checkout uses Prava hosted checkout, so it does not expose or require a Prava secret in the browser. The secure URL returned by Prava is opened directly in a new tab.
 
 *(Optional variables for branding like `PRAVA_MERCHANT_NAME`, `PRAVA_COUNTRY_CODE`, etc. can also be added to the backend `.env`)*
 
 ## 3. Where Output is Received and Obtained
 
 ### Frontend (Session Creation)
-When the frontend posts the cart data to the backend endpoint, the Prava API returns a session object.
+When the frontend posts the cart data to the backend endpoint, the Prava API returns a hosted session object.
 - **Where it is received:** The JSON response from `POST /api/prava/session/`.
 - **Where it is obtained:** Your frontend fetch call will receive the response containing an `iframe_url` or `url` which is used to render the Prava checkout UI.
 
@@ -59,13 +58,13 @@ const response = await fetch('/api/prava/session/', {
   body: JSON.stringify({ items: [...], amount: 100, currency: 'USD' })
 });
 const data = await response.json();
-console.log("Obtained Checkout URL:", data.iframe_url);
+window.open(data.iframe_url, '_blank', 'noopener,noreferrer');
 ```
 
 For the main Autocart checkout, use `POST /api/prava/sessions/`. The backend groups
 cart items by `mcp_server` and creates one Prava session per merchant group. The
 response contains `sessions[]`, each with its own `session_id`, `iframe_url`, merchant,
-and subtotal. Poll each returned session through the existing payment-result route.
+and subtotal. AutoCart opens each `iframe_url` verbatim, polls each session through the payment-result route, and reports the final merchant outcome through the report-status route.
 
 The Prava secret remains server-side in `backend/.env`:
 

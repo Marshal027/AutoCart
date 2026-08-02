@@ -13,6 +13,7 @@ class PravaSettings:
     category: str = 'Software Services'
     request_timeout_seconds: int = 30
     default_currency: str = 'USD'
+    callback_url: str = ''
 
     @classmethod
     def from_env(cls) -> 'PravaSettings':
@@ -27,6 +28,10 @@ class PravaSettings:
         if 'sandbox.' in backend_url and not merchant_secret_key.startswith('sk_test_'):
             raise ValueError('Sandbox Prava requires a real sk_test_* MERCHANT_SECRET_KEY.')
 
+        callback_url = os.getenv('PRAVA_CALLBACK_URL', '').strip()
+        if callback_url and not callback_url.startswith('https://'):
+            raise ValueError('PRAVA_CALLBACK_URL must use https://.')
+
         return cls(
             backend_url=backend_url,
             merchant_secret_key=merchant_secret_key,
@@ -37,4 +42,5 @@ class PravaSettings:
             category=os.getenv('PRAVA_CATEGORY', 'Software Services'),
             request_timeout_seconds=int(os.getenv('PRAVA_REQUEST_TIMEOUT_SECONDS', '30')),
             default_currency=os.getenv('PRAVA_DEFAULT_CURRENCY', 'USD'),
+            callback_url=callback_url,
         )

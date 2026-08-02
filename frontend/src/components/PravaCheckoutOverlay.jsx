@@ -4,13 +4,10 @@ import SpecularButton from "./SpecularButton.jsx";
 export default function PravaCheckoutOverlay({
   sessions = [],
   activeSessionIndex = 0,
-  hasPravaCard,
   status,
   orderSuccess,
   paymentFailure,
   onClose,
-  onCardSuccess,
-  onPaymentError,
 }) {
   const session = sessions[activeSessionIndex];
 
@@ -38,17 +35,15 @@ export default function PravaCheckoutOverlay({
         ) : session ? (
           <div className="modal-details-container prava-payment-details">
             <div className="checkout-header">
-              <h2 className="checkout-title">{hasPravaCard ? "Confirm secure payment" : "Set up secure payment"}</h2>
+              <h2 className="checkout-title">Secure Prava payment</h2>
               <span className="cart-header__badge">{activeSessionIndex + 1} / {sessions.length} merchants</span>
             </div>
             <p className="checkout-section-title prava-payment-status">{status}</p>
             <p className="checkout-address-text">
-              {hasPravaCard
-                ? "Approve the secure Prava request to pay this merchant. The remaining merchant sessions will follow automatically."
-                : "Add your card once in Prava's secure form. Your card details never reach AutoCart."}
+              Prava securely collects card details on the first payment and lets returning customers choose a saved card. Approve each merchant payment on Prava&apos;s secure page.
             </p>
-            {session.iframe_url && session.session_token ? (
-              <PravaPaymentFrame session={session} onSuccess={onCardSuccess} onError={onPaymentError} />
+            {session.iframe_url ? (
+              <PravaPaymentFrame session={session} />
             ) : (
               <p className="checkout-address-card">Secure Prava payment details were not returned.</p>
             )}
