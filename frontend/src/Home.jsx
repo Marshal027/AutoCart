@@ -6,7 +6,6 @@ import Nav from './components/Nav.jsx';
 import Hero from './components/Hero.jsx';
 import FeaturedWork from './components/FeaturedWork.jsx';
 import Services from './components/Services.jsx';
-import Footer from './components/Footer.jsx';
 import Loader from './components/Loader.jsx';
 import ShopHeaderLinks from './components/ShopHeaderLinks.jsx';
 
@@ -57,7 +56,6 @@ export default function Home() {
             <Hero />
             <FeaturedWork />
             <Services />
-            <Footer />
         </>
     );
 }
