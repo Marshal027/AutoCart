@@ -1,7 +1,7 @@
 .prava-settings-page {
   width: min(980px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 128px 0 72px;
+  padding: 36px 0 72px;
   color: #24211f;
 }
 
@@ -16,7 +16,7 @@
 .prava-settings-heading h1 {
   margin: 8px 0 0;
   font-size: clamp(2.4rem, 7vw, 5rem);
-  line-height: .95;
+  line-height: 0.95;
 }
 
 .prava-settings-heading p {
@@ -35,8 +35,8 @@
   padding: 26px;
   border: 1px solid #eadfd5;
   border-radius: 22px;
-  background: rgba(255, 253, 249, .9);
-  box-shadow: 0 20px 50px rgba(81, 62, 46, .1);
+  background: rgba(255, 253, 249, 0.9);
+  box-shadow: 0 20px 50px rgba(81, 62, 46, 0.1);
 }
 
 .prava-settings-card h2 {
@@ -50,9 +50,9 @@
   gap: 7px;
   margin-top: 14px;
   color: #475467;
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -64,14 +64,14 @@
   background: #fff;
   color: #24211f;
   font: inherit;
-  font-size: .95rem;
+  font-size: 0.95rem;
   letter-spacing: 0;
   text-transform: none;
 }
 
 .prava-settings-card input:focus {
   border-color: #b96150;
-  outline: 3px solid rgba(185, 97, 80, .15);
+  outline: 3px solid rgba(185, 97, 80, 0.15);
 }
 
 .prava-settings-row {
@@ -83,7 +83,7 @@
 .prava-settings-help {
   margin-top: 16px;
   color: #667085;
-  font-size: .86rem;
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 
@@ -96,7 +96,7 @@
   border-radius: 10px;
   background: #f5f9fd;
   color: #245b87;
-  font-size: .85rem;
+  font-size: 0.85rem;
   font-weight: 800;
 }
 
@@ -121,7 +121,7 @@
   color: #a04438;
   cursor: pointer;
   font: inherit;
-  font-size: .82rem;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
@@ -140,7 +140,9 @@
   cursor: pointer;
   font-family: "formula-narrow", sans-serif;
   font-weight: 800;
-  transition: transform .2s ease, filter .2s ease;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
 }
 
 .prava-settings-back {
@@ -151,7 +153,7 @@
   border-width: 1px;
   background: #fffaf4;
   color: #4c3d36;
-  box-shadow: 0 6px 16px rgba(81, 62, 46, .1);
+  box-shadow: 0 6px 16px rgba(81, 62, 46, 0.1);
 }
 
 .prava-settings-save {
@@ -160,7 +162,7 @@
   border: 0;
   background: #b96150;
   color: #fff;
-  box-shadow: 0 8px 18px rgba(159, 79, 64, .22);
+  box-shadow: 0 8px 18px rgba(159, 79, 64, 0.22);
 }
 
 .prava-settings-back:hover,
@@ -171,7 +173,7 @@
 
 .prava-settings-actions [role="status"] {
   color: #176b4b;
-  font-size: .85rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 

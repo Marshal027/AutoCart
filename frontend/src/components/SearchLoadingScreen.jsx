@@ -40,6 +40,11 @@ export default function SearchLoadingScreen({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
+      <div className="search-loading-rail" aria-hidden="true">
+        <span>AutoCart</span>
+        <span>Live shopping intelligence</span>
+        <span>01 / 04</span>
+      </div>
       <div className="search-loading-orbit search-loading-orbit--one" />
       <div className="search-loading-orbit search-loading-orbit--two" />
       <div className="search-loading-panel">
@@ -88,6 +93,10 @@ export default function SearchLoadingScreen({
             animate={{ scaleX: [0.08, 0.72, 0.34, 0.9] }}
             transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           />
+        </div>
+        <div className="search-loading-footer" aria-hidden="true">
+          <span>Find · Curate · Buy</span>
+          <span>Prava ready</span>
         </div>
       </div>
     </motion.div>

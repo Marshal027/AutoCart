@@ -1,6 +1,8 @@
 Django
 djangorestframework
 django-cors-headers
+openai
+requests
 python-dotenv
 google-genai
 google-search-results

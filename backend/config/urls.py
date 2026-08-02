@@ -6,4 +6,5 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path('api/prava/', include('prava.urls')),
     path('api/shop/', include('shop.urls')),
+    path('api/linq/', include('linq.urls')),
 ]

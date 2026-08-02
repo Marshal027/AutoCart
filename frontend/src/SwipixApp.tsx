@@ -178,6 +178,7 @@ type ShopPage = "home" | "products" | "cart";
 
 const CART_STORAGE_KEY = "trigr-shop-cart";
 const PLANNER_STORAGE_KEY = "trigr-shop-planner-results";
+const DEFAULT_PRAVA_BUDGET = 5000;
 
 function readStoredValue<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -327,10 +328,24 @@ function App({ page = "home" }: { page?: ShopPage }) {
   const [flowEvents, setFlowEvents] = useState<any[]>([]);
   const paymentStateRef = useRef(new Map<string, string>());
 
-  const logFlow = (title: string, message: string, level: "info" | "success" | "warning" | "error" = "info") => {
+  const logFlow = (
+    title: string,
+    message: string,
+    level: "info" | "success" | "warning" | "error" = "info",
+  ) => {
     setFlowEvents((current) => [
       ...current.slice(-49),
-      { id: `${Date.now()}-${Math.random()}`, title, message, level, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) },
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        title,
+        message,
+        level,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      },
     ]);
   };
 
@@ -344,9 +359,15 @@ function App({ page = "home" }: { page?: ShopPage }) {
         const result = await pollPravaPaymentResult(activeSession.session_id!);
         if (cancelled) return;
         const paymentState = String(result.status || "").toLowerCase();
-        if (paymentStateRef.current.get(activeSession.session_id!) !== paymentState) {
+        if (
+          paymentStateRef.current.get(activeSession.session_id!) !==
+          paymentState
+        ) {
           paymentStateRef.current.set(activeSession.session_id!, paymentState);
-          logFlow("Prava status", `${activeSession.merchant_name}: ${paymentState || "unknown"}.`);
+          logFlow(
+            "Prava status",
+            `${activeSession.merchant_name}: ${paymentState || "unknown"}.`,
+          );
         }
         if (paymentState === "awaiting_result") {
           const transaction =
@@ -370,7 +391,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
                 response_code: "00",
               });
               reportedPravaSessions.current.add(activeSession.session_id!);
-              logFlow("Payment reported", `${activeSession.merchant_name}: approved result sent to Prava.`, "success");
+              logFlow(
+                "Payment reported",
+                `${activeSession.merchant_name}: approved result sent to Prava.`,
+                "success",
+              );
               setPravaPaymentStatus(
                 "Payment approved. Finalizing the merchant order...",
               );
@@ -387,7 +412,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
           } else {
             setIsProcessingPayment(false);
             setOrderSuccess(true);
-            logFlow("Payment complete", "All MCP merchant sessions completed successfully.", "success");
+            logFlow(
+              "Payment complete",
+              "All MCP merchant sessions completed successfully.",
+              "success",
+            );
             setPravaPaymentStatus("All merchant payments completed.");
             updateCartItems([]);
           }
@@ -398,7 +427,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
               result.error?.message ||
               "A merchant payment was declined. Please try again.",
           );
-          logFlow("Payment failed", `${activeSession.merchant_name}: ${result.message || result.error?.message || "declined"}.`, "error");
+          logFlow(
+            "Payment failed",
+            `${activeSession.merchant_name}: ${result.message || result.error?.message || "declined"}.`,
+            "error",
+          );
           setPravaPaymentStatus("Payment declined.");
         }
       } catch (error) {
@@ -764,23 +797,31 @@ function App({ page = "home" }: { page?: ShopPage }) {
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
-    logFlow("Checkout requested", `Starting checkout for ${cartItems.length} cart item${cartItems.length === 1 ? "" : "s"}.`);
-    let savedBudget = 0;
+    logFlow(
+      "Checkout requested",
+      `Starting checkout for ${cartItems.length} cart item${cartItems.length === 1 ? "" : "s"}.`,
+    );
+    let savedBudget = DEFAULT_PRAVA_BUDGET;
     try {
-      savedBudget = Number(JSON.parse(localStorage.getItem("autocart-prava-settings") || "{}").budget || 0);
+      const configuredBudget = Number(
+        JSON.parse(localStorage.getItem("autocart-prava-settings") || "{}")
+          .budget,
+      );
+      if (Number.isFinite(configuredBudget) && configuredBudget > 0) {
+        savedBudget = configuredBudget;
+      }
     } catch {
-      savedBudget = 0;
-    }
-    if (savedBudget <= 0) {
-      setPaymentFailure("Set a maximum checkout budget in Prava settings before paying.");
-      logFlow("Budget blocked", "No payment session created because a maximum checkout budget is not set.", "warning");
-      setIsProcessingPayment(false);
-      setIsCheckoutOpen(true);
-      return;
+      savedBudget = DEFAULT_PRAVA_BUDGET;
     }
     if (grandTotal > savedBudget) {
-      setPaymentFailure(`This order is ₹${grandTotal}, above your ₹${savedBudget} AutoCart budget limit.`);
-      logFlow("Budget blocked", `₹${grandTotal} exceeds the configured ₹${savedBudget} limit.`, "warning");
+      setPaymentFailure(
+        `This order is ₹${grandTotal}, above your ₹${savedBudget} AutoCart budget limit.`,
+      );
+      logFlow(
+        "Budget blocked",
+        `₹${grandTotal} exceeds the configured ₹${savedBudget} limit.`,
+        "warning",
+      );
       setIsProcessingPayment(false);
       setIsCheckoutOpen(true);
       return;
@@ -790,7 +831,10 @@ function App({ page = "home" }: { page?: ShopPage }) {
     setPaymentFailure(null);
     setIsCheckoutOpen(false);
     setPravaPaymentStatus("Creating secure merchant sessions...");
-    logFlow("Creating sessions", "Requesting one Prava session for each MCP merchant.");
+    logFlow(
+      "Creating sessions",
+      "Requesting one Prava session for each MCP merchant.",
+    );
     try {
       const guestId =
         window.localStorage.getItem("prava-sandbox-user-id") ||
@@ -823,7 +867,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
         userEmail: "guest@example.com",
       });
       setPravaSessions(response.sessions);
-      logFlow("Sessions created", `${response.session_count} Prava merchant session${response.session_count === 1 ? "" : "s"} created.`, "success");
+      logFlow(
+        "Sessions created",
+        `${response.session_count} Prava merchant session${response.session_count === 1 ? "" : "s"} created.`,
+        "success",
+      );
       setActivePravaSessionIndex(0);
       setIsCheckoutOpen(true);
       setPravaPaymentStatus(
@@ -834,7 +882,11 @@ function App({ page = "home" }: { page?: ShopPage }) {
       setPaymentFailure(
         error instanceof Error ? error.message : "Checkout failed.",
       );
-      logFlow("Session creation failed", error instanceof Error ? error.message : "Checkout failed.", "error");
+      logFlow(
+        "Session creation failed",
+        error instanceof Error ? error.message : "Checkout failed.",
+        "error",
+      );
       setIsCheckoutOpen(true);
     }
   };
@@ -1303,6 +1355,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
               {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
               {questions.length > 0 && !finalResult && (
                 <div
+                  className="question-overlay"
                   style={{
                     position: "fixed",
                     inset: 0,
@@ -1311,7 +1364,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: "rgba(0,0,0,0.6)",
+                    backgroundColor: "rgba(39,37,34,0.22)",
                     backdropFilter: "blur(10px)",
                   }}
                 >
@@ -1327,7 +1380,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                   >
                     <button
                       onClick={() => handleFinalizeProduct()}
-                      className="cursor-target px-4 py-2 bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors font-semibold"
+                      className="question-skip-button cursor-target"
                     >
                       Skip ⏭
                     </button>
@@ -1347,7 +1400,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                       return (
                         <Step key={qId}>
                           <h2
-                            className="text-xl font-bold text-white mb-6 text-center cursor-target"
+                            className="question-title cursor-target"
                             style={{ fontFamily: "Space Mono" }}
                           >
                             {q.question}
@@ -1357,7 +1410,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                               q.options.map((opt) => (
                                 <button
                                   key={opt}
-                                  className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? "bg-[#5227ff] text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                                  className={`question-option cursor-target ${selectedAnswers[qId] === opt ? "question-option--selected" : ""}`}
                                   onClick={() => handleOptionSelect(qId, opt)}
                                 >
                                   {opt}
@@ -1919,7 +1972,9 @@ function App({ page = "home" }: { page?: ShopPage }) {
                     ) : pravaSessions.length > 0 ? (
                       <div className="modal-details-container">
                         <div className="checkout-header">
-                          <h2 className="checkout-title">Secure Prava payment</h2>
+                          <h2 className="checkout-title">
+                            Secure Prava payment
+                          </h2>
                           <span className="cart-header__badge">
                             {activePravaSessionIndex + 1} /{" "}
                             {pravaSessions.length} merchants
@@ -1929,7 +1984,10 @@ function App({ page = "home" }: { page?: ShopPage }) {
                           {pravaPaymentStatus}
                         </p>
                         <p className="checkout-address-text">
-                          Prava securely collects card details on the first payment and lets returning customers choose a saved card. Approve each merchant payment on Prava&apos;s secure page.
+                          Prava securely collects card details on the first
+                          payment and lets returning customers choose a saved
+                          card. Approve each merchant payment on Prava&apos;s
+                          secure page.
                         </p>
                         {pravaSessions[activePravaSessionIndex]?.iframe_url ? (
                           <PravaPaymentFrame

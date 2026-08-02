@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'api',
     'prava',
     'shop',
+    'linq',
 ]
 
 MIDDLEWARE = [
