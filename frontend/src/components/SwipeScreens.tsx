@@ -6,26 +6,8 @@ import {
   useRef,
 } from "react";
 import { AnimatePresence, motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
-import {
-  ArrowRight,
-  Brain,
-  Check,
-  CheckCircle2,
-  Loader2,
-  MessageCircle,
-  RotateCcw,
-  ShoppingCart,
-  Sparkles,
-  X,
-  Heart,
-  Zap,
-  Hand,
-  Sliders,
-  Settings,
-  Star,
-  Bookmark,
-  Bell,
-} from "lucide-react";
+import { Loader2, ArrowRight, Bookmark, Search, SearchSlash, AlertTriangle, Sparkles, Check, Zap, Hand, Trash2, ShoppingCart, Target, TrendingUp, Sliders, X, ShieldCheck, Tag, CreditCard, Calculator, Star, RotateCcw } from "lucide-react";
+import { LineSidebar } from "@/components/ui/line-sidebar";
 import type { CartItem, CategoryTrack, Item } from "../mockData";
 import { cn as cx } from "../lib/utils";
 import { SpotlightCard, ShinyText, SpecularButton, CurvedInput } from "./ReactBits";
@@ -37,6 +19,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { VoiceOverlay } from "./VoiceOverlay";
 import { PlannerBridge } from "../voice/PlannerBridge";
 import { AIAnalysisCard } from "./AIAnalysisCard";
+import { CometCard } from './ui/comet-card';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api";
 const AI_REQUEST_TIMEOUT_MS = 60000;
@@ -202,7 +185,7 @@ function ConversationBubble({ entry }: { entry: ConversationEntry }) {
   );
 }
 
-function AIThinking({ label, goal }: { label: string; goal: string }) {
+export function AIThinking({ label, goal }: { label: string; goal: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -656,11 +639,17 @@ function CategoryGridCard({
 
       <div className="flex flex-col border-t border-border-col/30 p-4 bg-black/40 backdrop-blur-md">
         <div className="font-['Space_Mono'] text-[9px] font-bold uppercase tracking-widest text-text/40 mb-1 line-clamp-1">
-          Source: <span className="text-accent/80">{item.merchant || "Unknown"}</span>
+          Source: <span className="text-accent/80">{item.merchant || item.restaurant || item.brand || "Unknown"}</span>
         </div>
         <h3 className="font-['Oswald'] text-sm font-bold uppercase tracking-wide text-text line-clamp-2 leading-tight group-hover:text-accent transition-colors">
           {item.name}
         </h3>
+        
+        {item.description && (
+          <p className="font-['Space_Mono'] text-[10px] text-text/60 mt-1 line-clamp-2">
+            {item.description}
+          </p>
+        )}
         
         <div className="mt-3 flex items-center justify-between">
           <span className="font-['Space_Mono'] text-lg font-bold text-accent drop-shadow-[0_0_8px_var(--theme-accent)]">
@@ -673,54 +662,48 @@ function CategoryGridCard({
         </div>
       </div>
       
-      {isAIPick && aiPickReason && (
-        <div className="px-3 pb-3">
-          <ErrorBoundary>
-            <AIAnalysisCard text={aiPickReason} categoryTitle={categoryTitle} products={categoryProducts} />
-          </ErrorBoundary>
-        </div>
-      )}
     </>
   );
 
   return (
     <>
-      <div
-        ref={cardRef}
-        className={cx(
-          "relative flex flex-col overflow-hidden transition-all duration-300",
-          flightStart ? "opacity-30 pointer-events-none" : "hover:-translate-y-1",
-          isSelected ? "glass-modal border-accent bg-accent/5 ring-1 ring-accent" :
-          isAIPick ? "border-accent shadow-[0_0_20px_var(--theme-accent)] scale-[1.05] z-20 bg-card-bg/90" : "border-border-col/50 bg-card-bg/40 backdrop-blur-sm",
-          "border"
-        )}
-      >
-        {cardContent}
-        <div className="flex border-t border-border-col/30 divide-x divide-border-col/30">
-          <button
-            type="button"
-            onClick={handleAdd}
-            className={cx(
-              "flex-1 py-2.5 text-center font-['Space_Mono'] text-[10px] font-bold uppercase tracking-widest transition-colors",
-              isSelected ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-bg text-text hover:bg-accent hover:text-bg"
-            )}
-          >
-            {isSelected ? "Remove" : "Add to Cart"}
-          </button>
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="flex-1 block bg-bg py-2.5 text-center font-['Space_Mono'] text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent hover:text-bg transition-colors"
-            >
-              Store ΓåÆ
-            </a>
+      <CometCard className="w-full h-full">
+        <div
+          ref={cardRef}
+          className={cx(
+            "relative flex flex-col overflow-hidden transition-all duration-300 h-full",
+            flightStart ? "opacity-30 pointer-events-none" : "hover:-translate-y-1",
+            isSelected ? "border-accent ring-1 ring-accent" :
+            isAIPick ? "border-accent shadow-[0_0_20px_var(--theme-accent)] scale-[1.05] z-20" : "border-border-col/50",
+            "border rounded-[16px] bg-[#1F2121] p-2 text-white saturate-0"
           )}
+        >
+          {cardContent}
+          <div className="flex border-t border-border-col/30 divide-x divide-border-col/30 mt-auto">
+            <button
+              type="button"
+              onClick={handleAdd}
+              className={cx(
+                "flex-1 py-2.5 text-center font-['Space_Mono'] text-[10px] font-bold uppercase tracking-widest transition-colors",
+                isSelected ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-bg text-text hover:bg-accent hover:text-bg"
+              )}
+            >
+              {isSelected ? "Remove" : "Add to Cart"}
+            </button>
+            {item.url && (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 block bg-bg py-2.5 text-center font-['Space_Mono'] text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent hover:text-bg transition-colors"
+              >
+                Store ΓåÆ
+              </a>
+            )}
+          </div>
         </div>
-      </div>
-
+      </CometCard>
       <AnimatePresence>
         {flightStart && (
           <motion.div
@@ -1311,21 +1294,8 @@ function CategorySwipeScreen({
         {/* Main content */}
         <main className="flex flex-1 flex-col items-center justify-center px-4 py-8">
           {isLoadingProducts ? (
-            <div className="flex flex-col items-center justify-center border border-border-col bg-card-bg p-8 shadow-xl max-w-sm w-full h-[520px]">
-              <Loader2 className="h-10 w-10 animate-spin text-accent mb-4" />
-              <h3 className="font-['Oswald'] text-2xl font-bold uppercase text-text tracking-wide text-center">
-                Finding {activeCat?.title}
-              </h3>
-              <p className="font-['Space_Mono'] text-xs text-text/60 mt-2 text-center h-4 overflow-hidden">
-                <motion.span 
-                  key={loadingMessage} 
-                  initial={{ opacity: 0, y: 10 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  className="block text-accent"
-                >
-                  {loadingMessage}
-                </motion.span>
-              </p>
+            <div className="flex flex-col items-center justify-center max-w-sm w-full h-[520px]">
+              {/* Removed loading indicator per user request */}
             </div>
           ) : categoryProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center border border-border-col bg-card-bg p-8 max-w-sm w-full">
@@ -1378,6 +1348,25 @@ function CategorySwipeScreen({
           )}
         </main>
       </div>
+
+      {/* Right sidebar - Deal Intelligence */}
+      <div className="hidden xl:flex w-80 border-l border-border-col bg-card-bg flex-col h-full shrink-0 items-center py-10 relative z-10">
+        <div className="absolute top-10 w-full px-8 mb-6">
+          <h3 className="font-['Oswald'] text-xl font-bold uppercase tracking-wide text-text mb-2 text-center">Deal Intelligence</h3>
+          <p className="text-xs text-text/50 text-center">Real-time AI analysis & tracking</p>
+        </div>
+        <div className="flex-1 w-full flex items-center justify-center mt-20">
+          <LineSidebar
+            items={['Searching products', 'Comparing merchants', 'Checking coupons', 'Checking card offers', 'Finalizing deals']}
+            accentColor="#5227ff"
+            textColor="#c4c4c4"
+            markerColor="#6c6c6c"
+            showIndex
+            showMarker
+            defaultActive={categoryProducts.length > 0 ? 4 : 0}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1389,7 +1378,7 @@ export function ProductSwipeView({
 }: {
   tracks: CategoryTrack[]; goal: string; summary: string; answers?: Answers; onReset: () => void; bridge?: PlannerBridge;
 }) {
-  const [mode, setMode] = useState<SwipeMode>(null);
+  const [mode, setMode] = useState<SwipeMode>("manual");
   const [budget, setBudget] = useState<number>(50000);
   const [voiceSelectedMode, setVoiceSelectedMode] = useState<"manual" | "ai" | null>(null);
   const hasItems = tracks.length > 0;
@@ -1405,14 +1394,10 @@ export function ProductSwipeView({
         setVoiceSelectedMode(selectedMode);
         setTimeout(() => {
           handleSelectMode(selectedMode);
-        }, 1200); // 1.2 second delay for visual feedback and speech
+        }, 1200);
       };
     }
   }, [bridge]);
-
-  if (!mode) {
-    return <ModeSelectionScreen summary={summary} onSelect={handleSelectMode} hasItems={hasItems} onReset={onReset} voiceSelectedMode={voiceSelectedMode} />;
-  }
 
   return <CategorySwipeScreen tracks={tracks} goal={goal} answers={answers} onReset={onReset} mode={mode} initialBudget={budget} bridge={bridge} />;
 }

@@ -245,6 +245,7 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
     elif category == "beauty":
         schema_example = '{"id":"b1","name":"Clinikally SPF 50 Sunscreen","brand":"Clinikally","price":599,"original_price":799,"delivery_time":"2-3 days","rating":4.4,"quantity":"50ml","emoji":"✨","is_ai_recommended":true,"description":"Dermatologist recommended broad spectrum sun protection"}'
         prompt = f"Generate {count} realistic Indian beauty/skincare products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
+    elif category == "apparel":
         schema_example = '{"id":"a1","name":"Campus Running Shoes","brand":"Campus","price":1299,"original_price":1799,"delivery_time":"3-5 days","rating":4.3,"quantity":"UK 9","emoji":"👟","is_ai_recommended":true,"description":"Lightweight breathable mesh running shoes for daily fitness"}'
         prompt = f"Generate {count} realistic Indian apparel/footwear products for query: '{query}'. User preferences: {answers_str}. Return a JSON array of {count} objects matching this exact schema: [{schema_example}]. Only output valid JSON array, nothing else."
     elif category == "travel":
