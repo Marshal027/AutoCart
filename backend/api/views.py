@@ -29,8 +29,13 @@ if not _skill_text:
 
 # ── Gemini client ──────────────────────────────────────────────────────
 _client = None
-if getattr(settings, 'GEMINI_API_KEY', None):
-    _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+
+def _get_gemini_client():
+    global _client
+    if _client is None and getattr(settings, 'GEMINI_API_KEY', None):
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
 
 
 MCP_CATEGORY_ALIASES = {
@@ -137,9 +142,10 @@ def detect_category_and_product(query: str, answers: list | None = None) -> dict
 
 
 def call_gemini(system_prompt: str, user_prompt: str) -> dict:
-    if not _client:
+    client = _get_gemini_client()
+    if not client:
         raise ValueError("Gemini API client not configured.")
-    response = _client.models.generate_content(
+    response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=user_prompt,
         config=genai.types.GenerateContentConfig(
@@ -292,8 +298,9 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
 
     # Try Gemini first
     try:
-        if _client:
-            response = _client.models.generate_content(
+        client = _get_gemini_client()
+        if client:
+            response = client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt,
                 config=genai.types.GenerateContentConfig(

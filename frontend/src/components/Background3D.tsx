@@ -1,11 +1,11 @@
-import React from 'react';
-import LiquidEther from './LiquidEther.jsx';
+import React from "react";
+import LiquidEther from "./LiquidEther.jsx";
 
 export const Background3D = () => {
   return (
     <div className="fixed inset-0 z-0 pointer-events-none">
       <LiquidEther
-        colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
+        colors={["#5227FF", "#FF9FFC", "#B497CF"]}
         mouseForce={20}
         cursorSize={100}
         isViscous={false}

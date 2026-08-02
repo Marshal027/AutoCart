@@ -25,8 +25,10 @@ export default function App() {
     const dot = cursorRef.current;
     if (!dot) return;
 
-    let mouseX = 0, mouseY = 0;
-    let dotX = 0, dotY = 0;
+    let mouseX = 0,
+      mouseY = 0;
+    let dotX = 0,
+      dotY = 0;
     let rafId;
 
     function onMove(e) {
@@ -53,9 +55,16 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
         <LiquidEther
-          colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
+          colors={["#5227FF", "#FF9FFC", "#B497CF"]}
           mouseForce={20}
           cursorSize={100}
           isViscous={false}
@@ -72,13 +81,28 @@ export default function App() {
           autoRampDuration={0.6}
         />
       </div>
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <div
+          className="cursor-dot"
+          ref={cursorRef}
+          style={{
+            pointerEvents: "none",
+            zIndex: 9999,
+            position: "fixed",
+            top: 0,
+            left: 0,
+          }}
+        />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/vision" element={<VisionPage />} />
           <Route path="/prava" element={<PravaSandbox />} />
-          <Route path="/shop/*" element={<SwipixApp />} />
+          <Route
+            path="/shop/products"
+            element={<SwipixApp page="products" />}
+          />
+          <Route path="/shop/cart" element={<SwipixApp page="cart" />} />
+          <Route path="/shop/*" element={<SwipixApp page="home" />} />
         </Routes>
       </div>
     </>
