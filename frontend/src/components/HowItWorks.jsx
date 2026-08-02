@@ -4,7 +4,7 @@ export default function HowItWorks() {
   const steps = [
     {
       num: "01",
-      title: "Tell Trigr What You Want",
+      title: "Tell AutoCart What You Want",
       desc: "Use your voice or type out the exact item, brand, or condition you're looking for.",
     },
     {
@@ -15,7 +15,7 @@ export default function HowItWorks() {
     {
       num: "03",
       title: "Instant Purchase",
-      desc: "The second your condition is met, Trigr automatically buys it for you.",
+      desc: "The second your condition is met, AutoCart automatically buys it for you.",
     }
   ];
 

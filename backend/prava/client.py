@@ -18,6 +18,9 @@ class PravaClient:
         path = f'/v1/sessions/{session_id}/payment-result?_t={int(time.time() * 1000)}'
         return self._request_json('GET', path)
 
+    def report_payment_status(self, session_id: str, payload):
+        return self._request_json('POST', f'/v1/sessions/{session_id}/report-status', payload)
+
     def _request_json(self, method: str, path: str, payload=None):
         url = f'{self.settings.backend_url}{path}'
         headers = {

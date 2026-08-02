@@ -6,9 +6,9 @@ import Nav from './components/Nav.jsx';
 import Hero from './components/Hero.jsx';
 import FeaturedWork from './components/FeaturedWork.jsx';
 import Services from './components/Services.jsx';
-import ContactCTA from './components/ContactCTA.jsx';
 import Footer from './components/Footer.jsx';
 import Loader from './components/Loader.jsx';
+import ShopHeaderLinks from './components/ShopHeaderLinks.jsx';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -51,11 +51,12 @@ export default function Home() {
                 <div className="transition-overlay overlay-1" style={{ transform: 'scaleY(0)' }}></div>
             </div>
 
-            <Nav />
+            <Nav>
+                <ShopHeaderLinks />
+            </Nav>
             <Hero />
             <FeaturedWork />
             <Services />
-            <ContactCTA />
             <Footer />
         </>
     );

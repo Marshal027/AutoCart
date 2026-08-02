@@ -680,12 +680,14 @@ def price_tracker_watchlist(request):
         )
         return Response({"id": item.product_id, "name": item.product_name}, status=201)
 
-    items = WatchlistItem.objects.filter(owner_number=owner_number)
+    show_all = str(request.query_params.get("all", "")).lower() in {"1", "true", "yes"}
+    items = WatchlistItem.objects.all() if show_all else WatchlistItem.objects.filter(owner_number=owner_number)
     return Response({
         "items": [
             {
                 "id": item.product_id,
                 "product_id": item.product_id,
+                "owner_number": item.owner_number,
                 "name": item.product_name,
                 "brand": item.brand,
                 "variant": item.variant,

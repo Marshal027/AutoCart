@@ -4,6 +4,10 @@ import Home from "./Home.jsx";
 import SwipixApp from "./SwipixApp.tsx";
 import VisionPage from "./VisionPage.jsx";
 import LiquidEther from "./components/LiquidEther.jsx";
+import PravaSettingsPage from "./prava/PravaSettingsPage.jsx";
+import EmptyShopPage from "./components/EmptyShopPage.jsx";
+import WatchlistPage from "./components/WatchlistPage.jsx";
+import AdminPage from "./components/AdminPage.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -24,8 +28,10 @@ export default function App() {
     const dot = cursorRef.current;
     if (!dot) return;
 
-    let mouseX = 0, mouseY = 0;
-    let dotX = 0, dotY = 0;
+    let mouseX = 0,
+      mouseY = 0;
+    let dotX = 0,
+      dotY = 0;
     let rafId;
 
     function onMove(e) {
@@ -52,9 +58,16 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
         <LiquidEther
-          colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
+          colors={["#5227FF", "#FF9FFC", "#B497CF"]}
           mouseForce={20}
           cursorSize={100}
           isViscous={false}
@@ -76,7 +89,7 @@ export default function App() {
       {/* Black navigation bar on top of all layouts */}
       <div style={{
         position: 'fixed',
-        top: 0,
+        top: '0px',
         left: 0,
         width: '100%',
         height: '40px',
@@ -101,7 +114,16 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/vision" element={<VisionPage />} />
-          <Route path="/shop/*" element={<SwipixApp />} />
+          <Route path="/prava" element={<PravaSettingsPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/shop/watchlist" element={<WatchlistPage />} />
+          <Route path="/shop/deals" element={<EmptyShopPage eyebrow="Live deals" title="Live deals" description="Live merchant offers will appear here." />} />
+          <Route
+            path="/shop/products"
+            element={<SwipixApp page="products" />}
+          />
+          <Route path="/shop/cart" element={<SwipixApp page="cart" />} />
+          <Route path="/shop/*" element={<SwipixApp page="home" />} />
         </Routes>
       </div>
     </>

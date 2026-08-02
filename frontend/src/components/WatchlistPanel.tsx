@@ -1,5 +1,6 @@
 import { TrendingDown } from "lucide-react";
 import { useWatchlist, toggleWatchlist } from "./SwipeScreens";
+import SpecularButton from "./SpecularButton.jsx";
 
 type WatchlistPanelProps = {
   onAddToCart: (
@@ -126,7 +127,8 @@ export function WatchlistPanel({ onAddToCart }: WatchlistPanelProps) {
                         : ""}
                     </div>
 
-                    <button
+                    <SpecularButton
+                      size="sm"
                       className="swiggy-add-btn w-full"
                       onClick={() =>
                         onAddToCart(
@@ -140,7 +142,7 @@ export function WatchlistPanel({ onAddToCart }: WatchlistPanelProps) {
                       }
                     >
                       Add to Cart
-                    </button>
+                    </SpecularButton>
                   </div>
                 </div>
               </div>

@@ -7,8 +7,14 @@ from .agent import QuikSwipeAgent
 
 logger = logging.getLogger(__name__)
 
-# Instantiate agent once
-agent = QuikSwipeAgent()
+_agent = None
+
+
+def _get_agent():
+    global _agent
+    if _agent is None:
+        _agent = QuikSwipeAgent()
+    return _agent
 
 @api_view(["POST"])
 def plan_event_validate(request):
@@ -22,7 +28,7 @@ def plan_event_validate(request):
     if not query:
         return Response({"valid": False, "message": "Query cannot be empty."}, status=400)
 
-    result = agent.generate_questions(query, user_id=user_id)
+    result = _get_agent().generate_questions(query, user_id=user_id)
     if not result.get("valid"):
         return Response(result, status=502)
         
@@ -41,7 +47,7 @@ def plan_event_finalize(request):
     if not query:
         return Response({"error": "Query is required."}, status=400)
 
-    result = agent.finalize_plan_and_fetch(query, answers, user_id=user_id)
+    result = _get_agent().finalize_plan_and_fetch(query, answers, user_id=user_id)
     if "error" in result:
         return Response(result, status=502)
 

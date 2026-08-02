@@ -124,7 +124,7 @@ export default function Footer() {
       <div className="explosion-container" ref={explosionContainerRef}></div>
       <div className="footer-container">
         <div className="footer-header">
-          <h1>Trigr</h1>
+          <h1>AutoCart</h1>
         </div>
         <div className="footer-row">
           <div className="footer-col">
@@ -148,7 +148,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="copyright-info">
-          <p className="mn">© Trigr // 2026</p>
+          <p className="mn">© AutoCart // 2026</p>
           <p className="mn">Built with Prava</p>
         </div>
       </div>

@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-08-02T13:56:19.284239+00:00",
+  "method": "POST",
+  "content_type": "application/json",
+  "headers": {
+    "Content-Length": "1433",
+    "Content-Type": "application/json",
+    "X-Forwarded-For": "54.157.59.12",
+    "X-Forwarded-Proto": "https",
+    "X-Forwarded-Port": "443",
+    "Host": "chilly-symbols-know.loca.lt",
+    "Accept-Encoding": "gzip",
+    "X-Webhook-Timestamp": "1785678979",
+    "X-Webhook-Subscription-Id": "b708d236-17b6-4916-886d-d3e69f0fd37f",
+    "X-Webhook-Signature": "2611e74f3506d4172720c1af413ce4acbd7cb8d5bca02b3816cbba2c612b3edc",
+    "X-Webhook-Payload-Version": "2026-02-03",
+    "X-Webhook-Event": "message.read",
+    "Webhook-Timestamp": "1785678979",
+    "Webhook-Signature": "v1,Q4EYlIW6FDSYgZRsMoC2w1K8zy010jxUnnmRrBajAOI=",
+    "Webhook-Id": "51812445-43de-457b-80c8-b5bb61e29e45",
+    "Traceparent": "00-6a9ff0592ecdfdf2896736b0d43b42f8-e6a7a96662cb75e6-01",
+    "User-Agent": "Synapse-Webhooks/1.0",
+    "X-Forwarded-Host": "chilly-symbols-know.loca.lt",
+    "Connection": "keep-alive"
+  },
+  "raw_body": "{\"api_version\":\"v3\",\"webhook_version\":\"2026-02-03\",\"event_type\":\"message.read\",\"event_id\":\"51812445-43de-457b-80c8-b5bb61e29e45\",\"created_at\":\"2026-08-02T13:55:45.614746534Z\",\"trace_id\":\"6a9ff0592ecdfdf2896736b0d43b42f8\",\"partner_id\":\"72e2d4a3-b287-54b5-924b-d2dc2ad7f31b\",\"data\":{\"chat\":{\"health_status\":{\"doc_url\":\"https://docs.linqapp.com/guides/chats/chat-health#healthy\",\"status\":\"HEALTHY\",\"updated_at\":\"2026-08-02T13:55:39.979113Z\"},\"id\":\"6e382574-cbfd-4682-8f93-0852be38635f\",\"is_group\":false,\"owner_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"}},\"delivered_at\":\"2026-08-02T13:55:43.293Z\",\"direction\":\"outbound\",\"effect\":null,\"id\":\"e7088175-d23e-44ff-a8fa-f050b9a33e60\",\"idempotency_key\":null,\"parts\":[{\"text_decorations\":null,\"type\":\"text\",\"value\":\"Your Watch List:\\n- JBL Tune 125TWS True Wireless In-Ear Headphones — ₹9999.00 (JBL, JBL)\\n- Bata Sports Sneakers — ₹1499.00 (Bata)\"}],\"preferred_service\":\"RCS\",\"read_at\":\"2026-08-02T13:55:45.138Z\",\"reply_to\":{\"message_id\":\"fe03da6b-91ae-4c68-aa7d-64e00229c728\",\"part_index\":0},\"sender_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"},\"sent_at\":\"2026-08-02T13:55:39.631Z\",\"service\":\"RCS\"}}",
+  "parsed_body": {
+    "api_version": "v3",
+    "webhook_version": "2026-02-03",
+    "event_type": "message.read",
+    "event_id": "51812445-43de-457b-80c8-b5bb61e29e45",
+    "created_at": "2026-08-02T13:55:45.614746534Z",
+    "trace_id": "6a9ff0592ecdfdf2896736b0d43b42f8",
+    "partner_id": "72e2d4a3-b287-54b5-924b-d2dc2ad7f31b",
+    "data": {
+      "chat": {
+        "health_status": {
+          "doc_url": "https://docs.linqapp.com/guides/chats/chat-health#healthy",
+          "status": "HEALTHY",
+          "updated_at": "2026-08-02T13:55:39.979113Z"
+        },
+        "id": "6e382574-cbfd-4682-8f93-0852be38635f",
+        "is_group": false,
+        "owner_handle": {
+          "handle": "+12132855773",
+          "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+          "is_me": true,
+          "joined_at": "2026-07-31T15:44:28.404428Z",
+          "left_at": null,
+          "service": "iMessage",
+          "status": "active"
+        }
+      },
+      "delivered_at": "2026-08-02T13:55:43.293Z",
+      "direction": "outbound",
+      "effect": null,
+      "id": "e7088175-d23e-44ff-a8fa-f050b9a33e60",
+      "idempotency_key": null,
+      "parts": [
+        {
+          "text_decorations": null,
+          "type": "text",
+          "value": "Your Watch List:\n- JBL Tune 125TWS True Wireless In-Ear Headphones — ₹9999.00 (JBL, JBL)\n- Bata Sports Sneakers — ₹1499.00 (Bata)"
+        }
+      ],
+      "preferred_service": "RCS",
+      "read_at": "2026-08-02T13:55:45.138Z",
+      "reply_to": {
+        "message_id": "fe03da6b-91ae-4c68-aa7d-64e00229c728",
+        "part_index": 0
+      },
+      "sender_handle": {
+        "handle": "+12132855773",
+        "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+        "is_me": true,
+        "joined_at": "2026-07-31T15:44:28.404428Z",
+        "left_at": null,
+        "service": "iMessage",
+        "status": "active"
+      },
+      "sent_at": "2026-08-02T13:55:39.631Z",
+      "service": "RCS"
+    }
+  }
+}

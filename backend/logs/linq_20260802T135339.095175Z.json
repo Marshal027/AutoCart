@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-08-02T13:53:39.095175+00:00",
+  "method": "POST",
+  "content_type": "application/json",
+  "headers": {
+    "Content-Length": "1338",
+    "Content-Type": "application/json",
+    "X-Forwarded-For": "54.157.59.12",
+    "X-Forwarded-Proto": "https",
+    "X-Forwarded-Port": "443",
+    "Host": "chilly-symbols-know.loca.lt",
+    "Accept-Encoding": "gzip",
+    "X-Webhook-Timestamp": "1785678812",
+    "X-Webhook-Subscription-Id": "b708d236-17b6-4916-886d-d3e69f0fd37f",
+    "X-Webhook-Signature": "85ef03dcb29e1c84e001dc67b9efce5f78cafd9dcacec83b49530df45b3376ca",
+    "X-Webhook-Payload-Version": "2026-02-03",
+    "X-Webhook-Event": "message.delivered",
+    "Webhook-Timestamp": "1785678812",
+    "Webhook-Signature": "v1,B3YGkJKncsFQJlaMTVadO8bD8KTsTSZr/2sugtGXBxo=",
+    "Webhook-Id": "1715a100-8d63-45d1-962e-9e61d04b72df",
+    "Traceparent": "00-5da6be51802d2c6bb454be1fef661105-dcbc6fc6ae6f8f0b-01",
+    "User-Agent": "Synapse-Webhooks/1.0",
+    "X-Forwarded-Host": "chilly-symbols-know.loca.lt",
+    "Connection": "keep-alive"
+  },
+  "raw_body": "{\"api_version\":\"v3\",\"webhook_version\":\"2026-02-03\",\"event_type\":\"message.delivered\",\"event_id\":\"1715a100-8d63-45d1-962e-9e61d04b72df\",\"created_at\":\"2026-08-02T13:53:32.17767052Z\",\"trace_id\":\"5da6be51802d2c6bb454be1fef661105\",\"partner_id\":\"72e2d4a3-b287-54b5-924b-d2dc2ad7f31b\",\"data\":{\"chat\":{\"health_status\":{\"doc_url\":\"https://docs.linqapp.com/guides/chats/chat-health#healthy\",\"status\":\"HEALTHY\",\"updated_at\":\"2026-08-02T13:53:28.128867Z\"},\"id\":\"6e382574-cbfd-4682-8f93-0852be38635f\",\"is_group\":false,\"owner_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"}},\"delivered_at\":\"2026-08-02T13:53:31.903Z\",\"direction\":\"outbound\",\"effect\":null,\"id\":\"bd4ebff9-d935-4ad7-9b67-42d6ddb2ef21\",\"idempotency_key\":null,\"parts\":[{\"text_decorations\":null,\"type\":\"text\",\"value\":\"Your Watch List:\\n- Bata Sports Sneakers — ₹1499.00 (Bata)\"}],\"preferred_service\":\"RCS\",\"read_at\":null,\"reply_to\":{\"message_id\":\"03a1c8a2-a216-4c83-b76c-666b19186c7d\",\"part_index\":0},\"sender_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"},\"sent_at\":\"2026-08-02T13:53:27.805Z\",\"service\":\"SMS\"}}",
+  "parsed_body": {
+    "api_version": "v3",
+    "webhook_version": "2026-02-03",
+    "event_type": "message.delivered",
+    "event_id": "1715a100-8d63-45d1-962e-9e61d04b72df",
+    "created_at": "2026-08-02T13:53:32.17767052Z",
+    "trace_id": "5da6be51802d2c6bb454be1fef661105",
+    "partner_id": "72e2d4a3-b287-54b5-924b-d2dc2ad7f31b",
+    "data": {
+      "chat": {
+        "health_status": {
+          "doc_url": "https://docs.linqapp.com/guides/chats/chat-health#healthy",
+          "status": "HEALTHY",
+          "updated_at": "2026-08-02T13:53:28.128867Z"
+        },
+        "id": "6e382574-cbfd-4682-8f93-0852be38635f",
+        "is_group": false,
+        "owner_handle": {
+          "handle": "+12132855773",
+          "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+          "is_me": true,
+          "joined_at": "2026-07-31T15:44:28.404428Z",
+          "left_at": null,
+          "service": "iMessage",
+          "status": "active"
+        }
+      },
+      "delivered_at": "2026-08-02T13:53:31.903Z",
+      "direction": "outbound",
+      "effect": null,
+      "id": "bd4ebff9-d935-4ad7-9b67-42d6ddb2ef21",
+      "idempotency_key": null,
+      "parts": [
+        {
+          "text_decorations": null,
+          "type": "text",
+          "value": "Your Watch List:\n- Bata Sports Sneakers — ₹1499.00 (Bata)"
+        }
+      ],
+      "preferred_service": "RCS",
+      "read_at": null,
+      "reply_to": {
+        "message_id": "03a1c8a2-a216-4c83-b76c-666b19186c7d",
+        "part_index": 0
+      },
+      "sender_handle": {
+        "handle": "+12132855773",
+        "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+        "is_me": true,
+        "joined_at": "2026-07-31T15:44:28.404428Z",
+        "left_at": null,
+        "service": "iMessage",
+        "status": "active"
+      },
+      "sent_at": "2026-08-02T13:53:27.805Z",
+      "service": "SMS"
+    }
+  }
+}

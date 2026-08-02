@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-08-02T13:55:52.804580+00:00",
+  "method": "POST",
+  "content_type": "application/json",
+  "headers": {
+    "Content-Length": "1416",
+    "Content-Type": "application/json",
+    "X-Forwarded-For": "54.157.59.12",
+    "X-Forwarded-Proto": "https",
+    "X-Forwarded-Port": "443",
+    "Host": "chilly-symbols-know.loca.lt",
+    "Accept-Encoding": "gzip",
+    "X-Webhook-Timestamp": "1785678943",
+    "X-Webhook-Subscription-Id": "b708d236-17b6-4916-886d-d3e69f0fd37f",
+    "X-Webhook-Signature": "7715a1bbdf31d9e3bf440303b1190342f07d83405fe2c22507a4703151393eef",
+    "X-Webhook-Payload-Version": "2026-02-03",
+    "X-Webhook-Event": "message.delivered",
+    "Webhook-Timestamp": "1785678943",
+    "Webhook-Signature": "v1,kmKdSTVGkQyrrL5gVJz7UXX7AK1Z33FJYp8SnUGaD28=",
+    "Webhook-Id": "a9f9f6ce-2038-4e81-a474-f5aef4f3bdb3",
+    "Traceparent": "00-6c7b4f9baf75e21b48394ce922c095eb-e6e1bf57bb216416-01",
+    "User-Agent": "Synapse-Webhooks/1.0",
+    "X-Forwarded-Host": "chilly-symbols-know.loca.lt",
+    "Connection": "keep-alive"
+  },
+  "raw_body": "{\"api_version\":\"v3\",\"webhook_version\":\"2026-02-03\",\"event_type\":\"message.delivered\",\"event_id\":\"a9f9f6ce-2038-4e81-a474-f5aef4f3bdb3\",\"created_at\":\"2026-08-02T13:55:43.645441093Z\",\"trace_id\":\"6c7b4f9baf75e21b48394ce922c095eb\",\"partner_id\":\"72e2d4a3-b287-54b5-924b-d2dc2ad7f31b\",\"data\":{\"chat\":{\"health_status\":{\"doc_url\":\"https://docs.linqapp.com/guides/chats/chat-health#healthy\",\"status\":\"HEALTHY\",\"updated_at\":\"2026-08-02T13:55:39.979113Z\"},\"id\":\"6e382574-cbfd-4682-8f93-0852be38635f\",\"is_group\":false,\"owner_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"}},\"delivered_at\":\"2026-08-02T13:55:43.293Z\",\"direction\":\"outbound\",\"effect\":null,\"id\":\"e7088175-d23e-44ff-a8fa-f050b9a33e60\",\"idempotency_key\":null,\"parts\":[{\"text_decorations\":null,\"type\":\"text\",\"value\":\"Your Watch List:\\n- JBL Tune 125TWS True Wireless In-Ear Headphones — ₹9999.00 (JBL, JBL)\\n- Bata Sports Sneakers — ₹1499.00 (Bata)\"}],\"preferred_service\":\"RCS\",\"read_at\":null,\"reply_to\":{\"message_id\":\"fe03da6b-91ae-4c68-aa7d-64e00229c728\",\"part_index\":0},\"sender_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"iMessage\",\"status\":\"active\"},\"sent_at\":\"2026-08-02T13:55:39.631Z\",\"service\":\"SMS\"}}",
+  "parsed_body": {
+    "api_version": "v3",
+    "webhook_version": "2026-02-03",
+    "event_type": "message.delivered",
+    "event_id": "a9f9f6ce-2038-4e81-a474-f5aef4f3bdb3",
+    "created_at": "2026-08-02T13:55:43.645441093Z",
+    "trace_id": "6c7b4f9baf75e21b48394ce922c095eb",
+    "partner_id": "72e2d4a3-b287-54b5-924b-d2dc2ad7f31b",
+    "data": {
+      "chat": {
+        "health_status": {
+          "doc_url": "https://docs.linqapp.com/guides/chats/chat-health#healthy",
+          "status": "HEALTHY",
+          "updated_at": "2026-08-02T13:55:39.979113Z"
+        },
+        "id": "6e382574-cbfd-4682-8f93-0852be38635f",
+        "is_group": false,
+        "owner_handle": {
+          "handle": "+12132855773",
+          "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+          "is_me": true,
+          "joined_at": "2026-07-31T15:44:28.404428Z",
+          "left_at": null,
+          "service": "iMessage",
+          "status": "active"
+        }
+      },
+      "delivered_at": "2026-08-02T13:55:43.293Z",
+      "direction": "outbound",
+      "effect": null,
+      "id": "e7088175-d23e-44ff-a8fa-f050b9a33e60",
+      "idempotency_key": null,
+      "parts": [
+        {
+          "text_decorations": null,
+          "type": "text",
+          "value": "Your Watch List:\n- JBL Tune 125TWS True Wireless In-Ear Headphones — ₹9999.00 (JBL, JBL)\n- Bata Sports Sneakers — ₹1499.00 (Bata)"
+        }
+      ],
+      "preferred_service": "RCS",
+      "read_at": null,
+      "reply_to": {
+        "message_id": "fe03da6b-91ae-4c68-aa7d-64e00229c728",
+        "part_index": 0
+      },
+      "sender_handle": {
+        "handle": "+12132855773",
+        "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+        "is_me": true,
+        "joined_at": "2026-07-31T15:44:28.404428Z",
+        "left_at": null,
+        "service": "iMessage",
+        "status": "active"
+      },
+      "sent_at": "2026-08-02T13:55:39.631Z",
+      "service": "SMS"
+    }
+  }
+}

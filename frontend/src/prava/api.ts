@@ -3,18 +3,25 @@ export interface CartItemPayload {
   name: string;
   price: number;
   quantity: number;
+  source?: string;
+  mcp_server?: string;
+  merchant_url?: string;
 }
 
 export interface PravaSessionRequest {
   items: CartItemPayload[];
   currency: string;
   amount: number;
-  return_url: string;
+  callback_url?: string;
   userId: string;
   userEmail: string;
 }
 
 export interface PravaSessionResponse {
+  session_id?: string;
+  session_token?: string;
+  order_id?: string;
+  expires_at?: string;
   iframe_url?: string;
   url?: string;
   data?: {
@@ -53,7 +60,11 @@ export async function createPravaSession(
   }
 
   if (!response.ok) {
-    const backendMessage = typeof data.error === 'string' ? data.error : rawBody;
+    const backendMessage = typeof data.error === 'string'
+      ? data.error
+      : typeof data.error?.message === 'string'
+        ? data.error.message
+        : rawBody;
     throw new Error(
       backendMessage
         ? `Prava session failed (${response.status}): ${backendMessage}`
@@ -62,4 +73,63 @@ export async function createPravaSession(
   }
 
   return data as PravaSessionResponse;
+}
+
+export interface PravaSessionGroup extends PravaSessionResponse {
+  merchant_key: string;
+  merchant_name: string;
+  amount: string;
+}
+
+export interface PravaSessionsResponse {
+  session_count: number;
+  sessions: PravaSessionGroup[];
+}
+
+export async function createPravaSessions(
+  payload: PravaSessionRequest,
+): Promise<PravaSessionsResponse> {
+  const response = await fetch('/api/prava/sessions/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof data.error === 'string'
+      ? data.error
+      : typeof data.error?.message === 'string'
+        ? data.error.message
+        : 'Could not create Prava merchant sessions.';
+    throw new Error(`Prava checkout failed (${response.status}): ${message}`);
+  }
+  return data as PravaSessionsResponse;
+}
+
+export async function pollPravaPaymentResult(sessionId: string): Promise<Record<string, any>> {
+  const response = await fetch(`/api/prava/sessions/${encodeURIComponent(sessionId)}/payment-result/?_t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(typeof data.error === 'string' ? data.error : 'Could not read Prava payment status.');
+  }
+  return data;
+}
+
+export async function reportPravaPaymentStatus(
+  sessionId: string,
+  payload: { txn_ref_id: string; txn_status: 'APPROVED' | 'DECLINED'; authorization_code?: string; response_code?: string },
+): Promise<Record<string, any>> {
+  const response = await fetch(`/api/prava/sessions/${encodeURIComponent(sessionId)}/report-status/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof data.error === 'string' ? data.error : data.error?.message || 'Could not report Prava payment status.';
+    throw new Error(message);
+  }
+  return data;
 }

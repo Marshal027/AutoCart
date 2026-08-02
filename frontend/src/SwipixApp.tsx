@@ -1,15 +1,35 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import Lenis from "lenis";
 import Nav from "./components/Nav.jsx";
-import { ProductSwipeView, QuestionFlow, toggleWatchlist, useWatchlist } from "./components/SwipeScreens";
+import { QuestionFlow } from "./components/SwipeScreens";
 import { ShinyText } from "./components/ReactBits";
-import { Bookmark, Pizza, ShoppingBag, ShoppingCart, Utensils, Sparkles, Shirt } from "lucide-react";
+import {
+  Pizza,
+  ShoppingBag,
+  ShoppingCart,
+  Utensils,
+  Sparkles,
+  Shirt,
+} from "lucide-react";
 import { TinderSwipe } from "./components/TinderSwipe";
-import { WatchlistPanel } from "./components/WatchlistPanel";
-import { LiveDealsPanel } from "./components/LiveDealsPanel";
+import TinderRecommendationPage from "./components/TinderRecommendationPage.jsx";
+import CartPage from "./components/CartPage.jsx";
+import SearchLoadingScreen from "./components/SearchLoadingScreen.jsx";
+import { AnimateNumber } from "motion-plus/react";
+import SpecularButton from "./components/SpecularButton.jsx";
 import TargetCursor from "./TargetCursor";
 import Stepper, { Step } from "./Stepper";
+import {
+  createPravaSessions,
+  pollPravaPaymentResult,
+  reportPravaPaymentStatus,
+  type PravaSessionGroup,
+} from "./prava/api";
+import PravaPaymentFrame from "./prava/PravaPaymentFrame";
+import PravaCheckoutOverlay from "./components/PravaCheckoutOverlay.jsx";
+import ShopHeaderLinks from "./components/ShopHeaderLinks.jsx";
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -148,53 +168,43 @@ interface CartItem {
   quantity: number;
   source: string;
   url?: string;
+  mcp_server?: string;
+  merchant_url?: string;
+  image?: string;
+  emoji?: string;
 }
 
-function WatchlistActionButton({ item }: { item: any }) {
-  const watchlist = useWatchlist();
-  const isWatching = watchlist.some((entry) => entry.id === item.id);
+type ShopPage = "home" | "products" | "cart";
 
-  return (
-    <button
-      type="button"
-      className={`watchlist-action-btn${isWatching ? " watchlist-action-btn--active" : ""}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        toggleWatchlist({
-          ...item,
-          image: item.image || item.image_url,
-        });
-      }}
-      aria-pressed={isWatching}
-    >
-      {isWatching ? "Watching" : "Add to Watchlist"}
-    </button>
-  );
+const CART_STORAGE_KEY = "trigr-shop-cart";
+const PLANNER_STORAGE_KEY = "trigr-shop-planner-results";
+
+function readStoredValue<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const value = window.sessionStorage.getItem(key);
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function WatchlistIconButton({ item }: { item: any }) {
-  const watchlist = useWatchlist();
-  const isWatching = watchlist.some((entry) => entry.id === item.id);
-
-  return (
-    <button
-      type="button"
-      className={`watchlist-icon-btn${isWatching ? " watchlist-icon-btn--active" : ""}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        toggleWatchlist({ ...item, image: item.image || item.image_url });
-      }}
-      aria-label={isWatching ? "Remove from watchlist" : "Add to watchlist"}
-      aria-pressed={isWatching}
-    >
-      <Bookmark className="h-4 w-4" fill={isWatching ? "currentColor" : "none"} />
-    </button>
-  );
+function writeStoredValue<T>(key: string, value: T | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (value === null) window.sessionStorage.removeItem(key);
+    else window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage is an enhancement; the in-memory state remains usable.
+  }
 }
 
-function App() {
+function App({ page = "home" }: { page?: ShopPage }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const isProductsPage =
+    page === "products" || location.pathname === "/shop/products";
+  const isCartPage = page === "cart" || location.pathname === "/shop/cart";
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -207,8 +217,9 @@ function App() {
   const [finalResult, setFinalResult] = useState<FinalProductResult | null>(
     null,
   );
-  const [plannerResults, setPlannerResults] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"shopping" | "watchlist" | "deals">("shopping");
+  const [plannerResults, setPlannerResults] = useState<any>(() =>
+    readStoredValue<any>(PLANNER_STORAGE_KEY, null),
+  );
   useEffect(() => {
     if (questions.length > 0) {
       const newAnswers = { ...selectedAnswers };
@@ -239,7 +250,29 @@ function App() {
   const [modalItemQty, setModalItemQty] = useState<number>(1);
 
   // Cart & Checkout State
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() =>
+    readStoredValue<CartItem[]>(CART_STORAGE_KEY, []),
+  );
+  const cartItemsRef = useRef<CartItem[]>(cartItems);
+
+  const updateCartItems = (
+    updater: CartItem[] | ((items: CartItem[]) => CartItem[]),
+  ) => {
+    const nextItems =
+      typeof updater === "function" ? updater(cartItemsRef.current) : updater;
+    cartItemsRef.current = nextItems;
+    setCartItems(nextItems);
+    writeStoredValue(CART_STORAGE_KEY, nextItems);
+  };
+
+  useEffect(() => {
+    writeStoredValue(CART_STORAGE_KEY, cartItems);
+    cartItemsRef.current = cartItems;
+  }, [cartItems]);
+
+  useEffect(() => {
+    writeStoredValue(PLANNER_STORAGE_KEY, plannerResults);
+  }, [plannerResults]);
 
   // Smooth Scrolling
   useEffect(() => {
@@ -259,27 +292,15 @@ function App() {
     };
   }, []);
 
-  // Lock body scroll when SwipeView overlay is active
-  useEffect(() => {
-    if (plannerResults && plannerResults.tracks) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [plannerResults]);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const q = params.get("q");
-    if (q) {
+    if (q && !isProductsPage && !isCartPage) {
       setQuery(q);
       handleValidate(q, null);
       navigate(location.pathname, { replace: true });
     }
-  }, [location.search]);
+  }, [location.search, isProductsPage, isCartPage]);
   const [isCartOpenMobile, setIsCartOpenMobile] = useState<boolean>(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [selectedPayment, setSelectedPayment] = useState<
@@ -288,14 +309,108 @@ function App() {
   const [isProcessingPayment, setIsProcessingPayment] =
     useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
+  const [paymentFailure, setPaymentFailure] = useState<string | null>(null);
+  const [hasPravaCard, setHasPravaCard] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("prava-card-enrolled") === "true",
+  );
+  const [pravaSessions, setPravaSessions] = useState<PravaSessionGroup[]>([]);
+  const [activePravaSessionIndex, setActivePravaSessionIndex] = useState(0);
+  const [pravaPaymentStatus, setPravaPaymentStatus] = useState(
+    "Preparing secure payment...",
+  );
+  const reportedPravaSessions = useRef(new Set<string>());
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isSendingText, setIsSendingText] = useState(false);
 
   const [bannerAlert, setBannerAlert] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const activeSession = pravaSessions[activePravaSessionIndex];
+    if (!activeSession?.session_id) return undefined;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await pollPravaPaymentResult(activeSession.session_id!);
+        if (cancelled) return;
+        const paymentState = String(result.status || "").toLowerCase();
+        if (paymentState === "awaiting_result") {
+          const transaction =
+            result.transactions?.find(
+              (entry: any) =>
+                String(entry.status || "").toLowerCase() === "awaiting_result",
+            ) || result.transactions?.[0];
+          const lineItem = transaction?.line_items?.[0];
+          const transactionReference = lineItem?.txn_ref_id;
+          const isSandboxSession = activeSession.iframe_url?.includes(
+            "sandbox.collect.prava.space",
+          );
+          if (
+            transactionReference &&
+            isSandboxSession &&
+            !reportedPravaSessions.current.has(activeSession.session_id!)
+          ) {
+            reportedPravaSessions.current.add(activeSession.session_id!);
+            await reportPravaPaymentStatus(activeSession.session_id!, {
+              txn_ref_id: transactionReference,
+              txn_status: "APPROVED",
+              authorization_code: "OK123",
+              response_code: "00",
+            });
+            setPravaPaymentStatus(
+              "Payment approved. Finalizing the merchant order...",
+            );
+          } else if (transactionReference && !isSandboxSession) {
+            setPravaPaymentStatus(
+              "Payment authorization received. Merchant confirmation is required for live checkout.",
+            );
+          }
+        } else if (paymentState === "completed") {
+          if (activePravaSessionIndex + 1 < pravaSessions.length) {
+            setActivePravaSessionIndex((index) => index + 1);
+            setPravaPaymentStatus(
+              "Merchant payment approved. Continue with the next secure session.",
+            );
+          } else {
+            setIsProcessingPayment(false);
+            setOrderSuccess(true);
+            setPravaPaymentStatus("All merchant payments completed.");
+            updateCartItems([]);
+          }
+        } else if (paymentState === "failed") {
+          setIsProcessingPayment(false);
+          setPaymentFailure(
+            result.message ||
+              result.error?.message ||
+              "A merchant payment was declined. Please try again.",
+          );
+          setPravaPaymentStatus("Payment declined.");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Unable to read payment status.";
+          setPaymentFailure(message);
+          setIsProcessingPayment(false);
+          setPravaPaymentStatus(message);
+        }
+      }
+    };
+
+    const interval = window.setInterval(poll, 3000);
+    poll();
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activePravaSessionIndex, pravaSessions]);
 
   const [isListShopping, setIsListShopping] = useState(false);
   const [listFile, setListFile] = useState<File | null>(null);
@@ -377,36 +492,6 @@ function App() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleSendAiText = async () => {
-    if (isSendingText) return;
-
-    setIsSendingText(true);
-    try {
-      const res = await fetch(`${API_BASE}/linq/send-ai-message/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query,
-          cart_items: cartItems.map(({ id, name, quantity, price }) => ({
-            id,
-            name,
-            quantity,
-            price,
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Unable to send text.");
-      }
-      showToast("AI text sent to your Linq number.");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Unable to send text.");
-    } finally {
-      setIsSendingText(false);
-    }
-  };
-
   const handleValidate = async (
     forcedQuery?: string,
     forcedCategory?: string | null,
@@ -469,20 +554,14 @@ function App() {
     }
   };
 
-  const handleProcessList = async (rawText?: string) => {
-    let text = "";
-    if (rawText && typeof rawText === "string") {
-      text = rawText;
-    } else if (listFile) {
-      text = await listFile.text();
-    } else {
-      return;
-    }
+  const handleProcessList = async () => {
+    if (!listFile) return;
 
     setLoading(true);
     setBannerAlert(null);
 
     try {
+      const text = await listFile.text();
       const res = await fetch(`${API_BASE}/process-list/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -524,37 +603,6 @@ function App() {
       setLoading(false);
     }
   };
-
-  // Poll the backend for new valid lists received via Linq messages
-  useEffect(() => {
-    let intervalId: any;
-    
-    const checkLinqMessages = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/linq/latest-message/`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.has_new && data.text) {
-            showToast("New shopping list received via Linq! 📱🛒");
-            setQuery(data.text);
-            setIsListShopping(true);
-            setIsCartOpenMobile(true);
-            // Automatically process the list
-            handleProcessList(data.text);
-          }
-        }
-      } catch (err) {
-        console.error("Error polling Linq messages:", err);
-      }
-    };
-
-    // Poll every 3 seconds
-    intervalId = setInterval(checkLinqMessages, 3000);
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
 
   const handleOptionSelect = (questionId: string | number, option: string) => {
     const key = String(questionId);
@@ -615,13 +663,9 @@ function App() {
           setShowTinderSwipe(true);
         } else if (data.tracks) {
           setPlannerResults(data);
+          writeStoredValue(PLANNER_STORAGE_KEY, data);
           navigate("/shop/products");
         }
-        setBannerAlert({
-          type: "success",
-          message:
-            "AI product specification complete! Details logged to console.",
-        });
       } else {
         setBannerAlert({
           type: "error",
@@ -645,8 +689,12 @@ function App() {
     count: number = 1,
     source: string = "Swiggy",
     url?: string,
+    paymentMetadata?: Pick<
+      CartItem,
+      "mcp_server" | "merchant_url" | "image" | "emoji"
+    >,
   ) => {
-    setCartItems((prev) => {
+    updateCartItems((prev) => {
       const existingIndex = prev.findIndex(
         (item) => String(item.id) === String(id),
       );
@@ -658,13 +706,16 @@ function App() {
         };
         return updated;
       }
-      return [...prev, { id, name, price, quantity: count, source, url }];
+      return [
+        ...prev,
+        { id, name, price, quantity: count, source, url, ...paymentMetadata },
+      ];
     });
     showToast(`Added ${count}x "${name}" to Cart! 🛒`);
   };
 
   const handleUpdateQty = (id: string | number, delta: number) => {
-    setCartItems((prev) =>
+    updateCartItems((prev) =>
       prev
         .map((item) => {
           if (String(item.id) === String(id)) {
@@ -678,14 +729,14 @@ function App() {
   };
 
   const handleRemoveItem = (id: string | number) => {
-    setCartItems((prev) =>
+    updateCartItems((prev) =>
       prev.filter((item) => String(item.id) !== String(id)),
     );
     showToast("Item removed from cart 🗑️");
   };
 
   const handleClearCart = () => {
-    setCartItems([]);
+    updateCartItems([]);
   };
 
   const totalCartCount = cartItems.reduce(
@@ -700,13 +751,79 @@ function App() {
   const taxesAndFees = cartSubtotal > 0 ? 15 : 0;
   const grandTotal = cartSubtotal + deliveryFee + taxesAndFees;
 
-  const handlePlaceOrder = () => {
-    setIsProcessingPayment(true);
-    setTimeout(() => {
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) return;
+    let savedBudget = 0;
+    try {
+      savedBudget = Number(JSON.parse(localStorage.getItem("autocart-prava-settings") || "{}").budget || 0);
+    } catch {
+      savedBudget = 0;
+    }
+    if (savedBudget > 0 && grandTotal > savedBudget) {
+      setPaymentFailure(`This order is ₹${grandTotal}, above your ₹${savedBudget} AutoCart budget limit.`);
       setIsProcessingPayment(false);
-      setOrderSuccess(true);
-      setCartItems([]);
-    }, 1400);
+      setIsCheckoutOpen(true);
+      return;
+    }
+    setIsProcessingPayment(true);
+    setOrderSuccess(false);
+    setPaymentFailure(null);
+    setIsCheckoutOpen(false);
+    setPravaPaymentStatus("Creating secure merchant sessions...");
+    try {
+      const guestId =
+        window.localStorage.getItem("prava-sandbox-user-id") ||
+        `guest_${Math.random().toString(36).slice(2, 10)}`;
+      window.localStorage.setItem("prava-sandbox-user-id", guestId);
+      const response = await createPravaSessions({
+        items: cartItems.map(
+          ({
+            id,
+            name,
+            price,
+            quantity,
+            source,
+            mcp_server,
+            merchant_url,
+          }) => ({
+            id: String(id),
+            name,
+            price,
+            quantity,
+            source,
+            mcp_server,
+            merchant_url,
+          }),
+        ),
+        currency: "INR",
+        amount: grandTotal,
+        callback_url: window.location.origin,
+        userId: guestId,
+        userEmail: "guest@example.com",
+      });
+      setPravaSessions(response.sessions);
+      setActivePravaSessionIndex(0);
+      setIsCheckoutOpen(true);
+      setPravaPaymentStatus(
+        `Secure payment ready for ${response.sessions.length} merchant${response.sessions.length === 1 ? "" : "s"}.`,
+      );
+    } catch (error) {
+      setIsProcessingPayment(false);
+      setPaymentFailure(
+        error instanceof Error ? error.message : "Checkout failed.",
+      );
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const closeCheckout = () => {
+    setIsCheckoutOpen(false);
+    setOrderSuccess(false);
+    setPaymentFailure(null);
+    setPravaSessions([]);
+    setActivePravaSessionIndex(0);
+    setPravaPaymentStatus("Preparing secure payment...");
+    setPaymentFailure(null);
   };
 
   const openProductModal = (prod: SwiggyProduct) => {
@@ -731,18 +848,32 @@ function App() {
     setShowTinderSwipe(false);
     setShowFinalConfirmation(false);
     setSwipeProducts([]);
+    setPravaSessions([]);
+    setActivePravaSessionIndex(0);
+    setPravaPaymentStatus("Preparing secure payment...");
   };
 
   return (
     <div className="swipix-app swipix-app-body app-wrapper app-wrapper--with-sidebar">
-      <TargetCursor
-        hideDefaultCursor={false}
-        cursorColor="#0e23a6"
-        cursorColorOnTarget="#d93d3d"
-      />
+      {questions.length > 0 && (
+        <TargetCursor
+          hideDefaultCursor={false}
+          cursorColor="#0e23a6"
+          cursorColorOnTarget="#d93d3d"
+        />
+      )}
       {/* Ambient glow blobs */}
       <div className="glow glow--1" />
       <div className="glow glow--2" />
+
+      {isCartOpenMobile && (
+        <button
+          type="button"
+          className="cart-sidebar-backdrop"
+          onClick={() => setIsCartOpenMobile(false)}
+          aria-label="Close cart sidebar"
+        />
+      )}
 
       {/* ── LEFT SIDEBAR CART ─────────────────────────────────── */}
       <aside
@@ -752,7 +883,9 @@ function App() {
           <div className="cart-header__title-wrap">
             <span className="cart-header__icon">🛒</span>
             <h2 className="cart-header__title">Your Cart</h2>
-            <span className="cart-header__badge">{totalCartCount} items</span>
+            <span className="cart-header__badge">
+              <AnimateNumber>{totalCartCount}</AnimateNumber> items
+            </span>
           </div>
 
           {cartItems.length > 0 && (
@@ -766,8 +899,13 @@ function App() {
           )}
 
           <button
+            type="button"
             className="cart-close-mobile"
-            onClick={() => setIsCartOpenMobile(false)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsCartOpenMobile(false);
+            }}
             aria-label="Close cart drawer"
           >
             ✕
@@ -830,7 +968,9 @@ function App() {
                       ₹{item.price} each
                     </span>
                     <span className="cart-item-total-price">
-                      ₹{item.price * item.quantity}
+                      <AnimateNumber prefix="₹">
+                        {item.price * item.quantity}
+                      </AnimateNumber>
                     </span>
                   </div>
 
@@ -841,7 +981,9 @@ function App() {
                     >
                       -
                     </button>
-                    <span className="cart-item-qty-num">{item.quantity}</span>
+                    <span className="cart-item-qty-num">
+                      <AnimateNumber>{item.quantity}</AnimateNumber>
+                    </span>
                     <button
                       className="cart-item-qty-btn"
                       onClick={() => handleUpdateQty(item.id, 1)}
@@ -859,7 +1001,9 @@ function App() {
           <div className="cart-summary-rows">
             <div className="cart-summary-row">
               <span>Items Subtotal</span>
-              <span>₹{cartSubtotal}</span>
+              <span>
+                <AnimateNumber prefix="₹">{cartSubtotal}</AnimateNumber>
+              </span>
             </div>
             <div className="cart-summary-row">
               <span>Delivery Charges</span>
@@ -867,28 +1011,35 @@ function App() {
             </div>
             <div className="cart-summary-row">
               <span>Taxes & Packaging</span>
-              <span>₹{taxesAndFees}</span>
+              <span>
+                <AnimateNumber prefix="₹">{taxesAndFees}</AnimateNumber>
+              </span>
             </div>
             <div className="cart-summary-row cart-summary-row--total">
               <span>Grand Total</span>
-              <span>₹{grandTotal}</span>
+              <span>
+                <AnimateNumber prefix="₹">{grandTotal}</AnimateNumber>
+              </span>
             </div>
           </div>
 
-          <button
+          <SpecularButton
+            size="md"
             id="checkout-btn"
             className="cart-checkout-btn"
             disabled={cartItems.length === 0}
-            onClick={() => setIsCheckoutOpen(true)}
+            onClick={handlePlaceOrder}
           >
             <span className="checkout-btn-label">
-              <span>Proceed to Checkout</span>
+              <span>Proceed to pay</span>
             </span>
             <span className="checkout-btn-label">
-              <span>₹{grandTotal}</span>
+              <span>
+                <AnimateNumber prefix="₹">{grandTotal}</AnimateNumber>
+              </span>
               <span className="checkout-btn-arrow">→</span>
             </span>
-          </button>
+          </SpecularButton>
         </div>
       </aside>
 
@@ -899,145 +1050,147 @@ function App() {
         </div>
       )}
 
+      {!isProductsPage && !isCartPage && (loading || finalizing) && (
+        <SearchLoadingScreen query={query} finalizing={finalizing} />
+      )}
+
       <Nav>
-        <div className="flex items-center gap-4 mr-4" style={{ marginLeft: "auto" }}>
-          <button
+        {/* Cart Button in Navbar */}
+        <div
+          className="desktop-cart-slot items-center gap-4 mr-4"
+          style={{ marginLeft: "auto" }}
+        >
+          <ShopHeaderLinks showCart={false} />
+          <motion.button
             type="button"
-            className="linq-text-btn"
-            onClick={handleSendAiText}
-            disabled={isSendingText}
-            aria-label="Send AI text to Linq number"
+            className="cart-badge cart-nav-button"
+            onClick={() => navigate("/shop/cart")}
+            aria-label={`Open cart page with ${totalCartCount} items`}
+            whileHover={{ y: -2, scale: 1.025 }}
+            whileTap={{ scale: 0.96 }}
+            initial={false}
           >
-            {isSendingText ? "Sending..." : "Text"}
-          </button>
-          {totalCartCount > 0 && (
-            <div
-              className="cart-badge"
-              onClick={() => setIsCartOpenMobile(true)}
-              style={{
-                cursor: "pointer",
-                background: "rgba(255,255,255,0.1)",
-                padding: "8px 16px",
-                borderRadius: "20px",
-              }}
+            <span className="cart-nav-icon" aria-hidden="true">
+              <ShoppingCart size={16} strokeWidth={2.4} />
+            </span>
+            <span className="cart-nav-label">Cart</span>
+            <motion.span
+              key={totalCartCount}
+              className="cart-nav-count"
+              initial={{ scale: 0.72, opacity: 0.5 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 24 }}
             >
-              🛒{" "}
-              <span style={{ marginLeft: "4px", fontWeight: "bold" }}>
-                {totalCartCount} Items
-              </span>
-            </div>
-          )}
+              <AnimateNumber>{totalCartCount}</AnimateNumber>
+            </motion.span>
+          </motion.button>
         </div>
       </Nav>
 
-      <main className="container" style={{ paddingTop: "100px" }}>
-        {/* List Mode Toggle (Above Input Bar) */}
-        <div className="w-full max-w-2xl mx-auto flex justify-end mb-3 pr-2 relative" style={{ zIndex: 999999 }}>
-          <div className="flex items-center gap-3">
-            <span style={{ color: "var(--text)" }} className="font-['Space_Mono'] text-xs font-bold uppercase tracking-widest opacity-80">List Mode</span>
-            <button
-              onClick={() => setIsListShopping(!isListShopping)}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black"
-              style={{
-                backgroundColor: isListShopping ? 'var(--theme-accent)' : 'rgba(255,255,255,0.2)',
-                boxShadow: isListShopping ? '0 0 10px var(--theme-accent)' : 'none'
-              }}
-            >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out"
-                style={{ transform: isListShopping ? 'translateX(24px)' : 'translateX(4px)' }}
-              />
-            </button>
-          </div>
-        </div>
-        {/* Search Input — Below Nav */}
-        <div
-          className="voice-bar-section compact w-full max-w-3xl mx-auto px-4"
-          style={{ padding: 0, background: "transparent" }}
-        >
+      {!isProductsPage && !isCartPage ? (
+        <main className="container" style={{ paddingTop: "96px" }}>
+          {/* Search Input — Below Nav */}
           <div
-            className="voice-bar-container w-full"
-            style={{ maxWidth: "100%", height: "68px" }}
+            className="voice-bar-section compact w-full max-w-3xl mx-auto px-4"
+            style={{ padding: 0, background: "transparent" }}
           >
-            <button
-              type="button"
-              className="voice-btn"
-              onClick={() => navigate("/vision")}
-              style={{ marginRight: "12px" }}
-              title="Visual Search"
+            <div
+              className="voice-bar-container shop-search-bar-container w-full"
+              style={{ maxWidth: "100%" }}
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <SpecularButton
+                size="sm"
+                type="button"
+                className="voice-btn"
+                onClick={() => navigate("/vision")}
+                style={{ marginRight: 0, padding: 0 }}
+                title="Visual Search"
               >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                <circle cx="12" cy="13" r="4"></circle>
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`voice-btn ${isListening ? "recording" : ""}`}
-              onClick={toggleListen}
-              style={{ marginRight: "16px" }}
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="voice-btn"
-              onClick={() => setIsCartOpenMobile(true)}
-              style={{ marginRight: '16px', backgroundColor: '#000000', color: '#ffffff' }}
-              title="Cart"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1"></circle>
-                <circle cx="20" cy="21" r="1"></circle>
-                <circle cx="20" cy="21" r="1"></circle>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-              </svg>
-            </button>
-
-            <div className="input-wrap" style={{ flex: 1 }}>
-              {isListening ? (
-                <div
-                  className="voice-input"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    height: "100%",
-                    fontSize: "1.25rem",
-                  }}
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  {transcript || "Listening..."}
-                </div>
-              ) : (
-                <input
-                  id="search-input"
-                  className="voice-input"
-                  type="text"
-                  placeholder={isListShopping ? "Paste or type your shopping list here (e.g. 1. Milk)..." : "Ask Trigr to find something..."}
-                  value={query}
-                  style={{ width: "100%", fontSize: "1.25rem" }}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+              </SpecularButton>
+              <SpecularButton
+                size="sm"
+                type="button"
+                className={`voice-btn ${isListening ? "recording" : ""}`}
+                onClick={toggleListen}
+                style={{ marginRight: 0, padding: 0 }}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              </SpecularButton>
+
+              <div className="input-wrap" style={{ flex: 1 }}>
+                {isListening ? (
+                  <div
+                    className="voice-input"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      height: "100%",
+                    }}
+                  >
+                    {transcript || "Listening..."}
+                  </div>
+                ) : (
+                  <input
+                    id="search-input"
+                    className="voice-input"
+                    type="text"
+                    placeholder="Ask AutoCart to find something..."
+                    value={query}
+                    style={{ width: "100%" }}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setQuestions([]);
+                      setSelectedAnswers({});
+                      setFinalResult(null);
+                      setPlannerResults(null);
+                      setActiveProduct(null);
+                      setActiveFoodDish(null);
+                      setBannerAlert(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && questions.length === 0)
+                        handleValidate();
+                    }}
+                  />
+                )}
+              </div>
+
+              {query && (
+                <SpecularButton
+                  size="sm"
+                  className="search-btn"
+                  style={{
+                    background: "transparent",
+                    color: "#b96150",
+                    padding: 0,
+                  }}
+                  onClick={() => {
+                    setQuery("");
                     setQuestions([]);
                     setSelectedAnswers({});
                     setFinalResult(null);
@@ -1046,1659 +1199,955 @@ function App() {
                     setActiveFoodDish(null);
                     setBannerAlert(null);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      if (isListShopping) {
-                        handleProcessList(query);
-                      } else if (questions.length === 0) {
-                        handleValidate();
-                      }
-                    }
-                  }}
-                />
-              )}
-            </div>
-
-            {query && (
-              <button
-                className="search-btn"
-                style={{ background: "transparent", color: "#ef4444" }}
-                onClick={() => {
-                  setQuery("");
-                  setQuestions([]);
-                  setSelectedAnswers({});
-                  setFinalResult(null);
-                  setPlannerResults(null);
-                  setActiveProduct(null);
-                  setActiveFoodDish(null);
-                  setBannerAlert(null);
-                }}
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Secondary Toolbar */}
-        <div className="flex justify-end items-center mb-4 px-4">
-          <div className="flex items-center gap-4 md:hidden">
-            <button
-              className="mobile-cart-toggle-btn"
-              onClick={() => setIsCartOpenMobile(!isCartOpenMobile)}
-            >
-              🛒 Cart ({totalCartCount})
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-12 w-full max-w-7xl mx-auto mt-4">
-
-          {/* Main Content Area (Centered Search + Validate) */}
-          <div className="flex-1 flex flex-col items-center justify-start ">
-            {/* Validate Action button */}
-            {!isListShopping &&
-              query.trim() &&
-              questions.length === 0 &&
-              !finalResult &&
-              !plannerResults && (
-                <button
-                  id="continue-btn"
-                  className="cta-btn"
-                  style={{
-                    width: "100%",
-                    maxWidth: "280px",
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                  onClick={() => handleValidate()}
-                  disabled={loading || finalizing}
-                >
-                  {loading || finalizing ? (
-                    <>
-                      <span className="cta-btn__spinner" />
-                      {finalizing ? "Building AI Plan..." : "Processing..."}
-                    </>
-                  ) : (
-                    <>Validate & Continue</>
-                  )}
-                </button>
-              )}
-
-            {/* Process List button (for List Mode) */}
-            {isListShopping && query.trim() && (
-              <button
-                id="process-list-btn"
-                className="cta-btn"
-                style={{ width: '100%', maxWidth: '280px', display: 'flex', justifyContent: 'center' }}
-                onClick={() => handleProcessList(query)}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="cta-btn__spinner" />
-                    Processing List...
-                  </>
-                ) : (
-                  <>
-                    Process List 📋
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Alert Banner */}
-            {bannerAlert && (
-              <div
-                className={`alert alert--${bannerAlert.type} w-full max-w-2xl mt-4`}
-              >
-                <span className="alert__icon">
-                  {bannerAlert.type === "success" ? "✅" : "⚠️"}
-                </span>
-                <p className="alert__text">{bannerAlert.message}</p>
-                <button
-                  className="alert__close"
-                  onClick={() => setBannerAlert(null)}
-                  aria-label="Dismiss"
+                  aria-label="Clear search"
                 >
                   ✕
-                </button>
-              </div>
-            )}
+                </SpecularButton>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Tab Switcher */}
-        <div className="flex justify-center mb-8 border-b border-border-col">
-          <button
-            className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === 'shopping' ? 'text-accent border-b-2 border-accent' : 'text-text/50 hover:text-text'}`}
-            onClick={() => setActiveTab('shopping')}
-          >
-            Shopping
-          </button>
-          <button
-            className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === 'watchlist' ? 'text-accent border-b-2 border-accent' : 'text-text/50 hover:text-text'}`}
-            onClick={() => setActiveTab('watchlist')}
-          >
-            Watchlist
-          </button>
-          <button
-            className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === 'deals' ? 'text-accent border-b-2 border-accent' : 'text-text/50 hover:text-text'}`}
-            onClick={() => setActiveTab('deals')}
-          >
-            Live Deals
-          </button>
-        </div>
-
-        {activeTab === "watchlist" && (
-          <div className="mt-8">
-            <WatchlistPanel onAddToCart={handleAddToCart} />
-          </div>
-        )}
-
-        {activeTab === "deals" && (
-          <div className="mt-8">
-            <LiveDealsPanel query={query || undefined} />
-          </div>
-        )}
-
-        {activeTab === "shopping" && (
-          <>
-            {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
-            {questions.length > 0 && !finalResult && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 1050,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "rgba(0,0,0,0.6)",
-                  backdropFilter: "blur(10px)",
-                }}
+          {/* Secondary Toolbar */}
+          <div className="flex justify-end items-center mb-4 px-4">
+            <div className="flex items-center gap-4 md:hidden">
+              <SpecularButton
+                size="sm"
+                className="mobile-cart-toggle-btn"
+                onClick={() => navigate("/shop/cart")}
               >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "600px",
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginBottom: "1rem",
-                    paddingRight: "1rem",
-                  }}
-                >
-                  <button
-                    onClick={() => handleFinalizeProduct()}
-                    className="cursor-target px-4 py-2 bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors font-semibold"
+                🛒 Cart (<AnimateNumber>{totalCartCount}</AnimateNumber>)
+              </SpecularButton>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-12 w-full max-w-7xl mx-auto mt-4">
+            {/* Main Content Area (Centered Search + Validate) */}
+            <div className="flex-1 flex flex-col items-center justify-start ">
+              {/* Validate Action button */}
+              {!isListShopping &&
+                query.trim() &&
+                questions.length === 0 &&
+                !finalResult &&
+                !plannerResults &&
+                cartItems.length === 0 && (
+                  <SpecularButton
+                    size="md"
+                    id="continue-btn"
+                    className="cta-btn"
+                    style={{
+                      width: "100%",
+                      maxWidth: "280px",
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                    onClick={() => handleValidate()}
+                    disabled={loading || finalizing}
                   >
-                    Skip ⏭
+                    {loading || finalizing ? (
+                      <>
+                        <span className="cta-btn__spinner" />
+                        {finalizing ? "Building AI Plan..." : "Processing..."}
+                      </>
+                    ) : (
+                      <>Validate & Continue</>
+                    )}
+                  </SpecularButton>
+                )}
+
+              {/* Alert Banner */}
+              {bannerAlert && (
+                <div
+                  className={`alert alert--${bannerAlert.type} w-full max-w-2xl mt-4`}
+                >
+                  <span className="alert__icon">
+                    {bannerAlert.type === "success" ? "✅" : "⚠️"}
+                  </span>
+                  <p className="alert__text">{bannerAlert.message}</p>
+                  <button
+                    className="alert__close"
+                    onClick={() => setBannerAlert(null)}
+                    aria-label="Dismiss"
+                  >
+                    ✕
                   </button>
                 </div>
-                <Stepper
-                  initialStep={1}
-                  onFinalStepCompleted={handleFinalizeProduct}
-                  backButtonText="Previous"
-                  nextButtonText="Done"
-                  hideStepIndicators={true}
-                  renderStepIndicator={() => null}
-                  style={{ width: "100%", maxWidth: "600px" }}
+              )}
+            </div>
+          </div>
+
+          {(questions.length > 0 || finalResult || isCheckoutOpen) && (
+            <>
+              {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
+              {questions.length > 0 && !finalResult && (
+                <div
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 1050,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "rgba(0,0,0,0.6)",
+                    backdropFilter: "blur(10px)",
+                  }}
                 >
-                  {questions.map((q, idx) => {
-                    const qId = q.id !== undefined ? String(q.id) : `q_${idx}`;
-                    return (
-                      <Step key={qId}>
-                        <h2
-                          className="text-xl font-bold text-white mb-6 text-center cursor-target"
-                          style={{ fontFamily: "Space Mono" }}
-                        >
-                          {q.question}
-                        </h2>
-                        <div className="flex flex-col gap-3 mb-4">
-                          {q.options &&
-                            q.options.map((opt) => (
-                              <button
-                                key={opt}
-                                className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? "bg-[#5227ff] text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
-                                onClick={() => handleOptionSelect(qId, opt)}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                        </div>
-                      </Step>
-                    );
-                  })}
-                </Stepper>
-              </div>
-            )}
-
-            {plannerResults && location.pathname.includes("/shop/products") && (
-              <ProductSwipeView
-                tracks={plannerResults.tracks}
-                goal={query}
-                summary={plannerResults.summary}
-                answers={selectedAnswers}
-                onReset={() => {
-                  setPlannerResults(null);
-                  setQuery("");
-                  setQuestions([]);
-                  setSelectedAnswers({});
-                  navigate("/shop");
-                }}
-              />
-            )}
-
-            {/* ── Tinder Swipe: Shows directly after AI identifies product ──── */}
-            {finalResult && showTinderSwipe && swipeProducts.length > 0 && (
-              <section className="results-container">
-                {/* Small pill showing what AI found */}
-                <div className="flex flex-col items-center mb-6">
-                  <span className="result-badge mb-2">
-                    🎯 Found: {finalResult.exact_product}
-                  </span>
-                  <p className="text-text/50 text-xs font-['Space_Mono'] text-center">
-                    Swipe ❤️ to add to cart · Swipe ✕ to skip
-                  </p>
+                  <div
+                    style={{
+                      width: "100%",
+                      maxWidth: "600px",
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      marginBottom: "1rem",
+                      paddingRight: "1rem",
+                    }}
+                  >
+                    <button
+                      onClick={() => handleFinalizeProduct()}
+                      className="cursor-target px-4 py-2 bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors font-semibold"
+                    >
+                      Skip ⏭
+                    </button>
+                  </div>
+                  <Stepper
+                    initialStep={1}
+                    onFinalStepCompleted={handleFinalizeProduct}
+                    backButtonText="Previous"
+                    nextButtonText="Done"
+                    hideStepIndicators={true}
+                    renderStepIndicator={() => null}
+                    style={{ width: "100%", maxWidth: "600px" }}
+                  >
+                    {questions.map((q, idx) => {
+                      const qId =
+                        q.id !== undefined ? String(q.id) : `q_${idx}`;
+                      return (
+                        <Step key={qId}>
+                          <h2
+                            className="text-xl font-bold text-white mb-6 text-center cursor-target"
+                            style={{ fontFamily: "Space Mono" }}
+                          >
+                            {q.question}
+                          </h2>
+                          <div className="flex flex-col gap-3 mb-4">
+                            {q.options &&
+                              q.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? "bg-[#5227ff] text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                                  onClick={() => handleOptionSelect(qId, opt)}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                          </div>
+                        </Step>
+                      );
+                    })}
+                  </Stepper>
                 </div>
-                <TinderSwipe
-                  products={swipeProducts}
-                  onSwipeRight={(prod) => {
-                    handleAddToCart(
-                      prod.id,
-                      prod.name,
-                      prod.price,
-                      1,
-                      prod.brand || "AI Product",
-                      prod.url,
-                    );
-                  }}
-                  onSwipeLeft={(prod) => {
-                    console.log("Passed on", prod.name);
-                  }}
-                  onComplete={() => {
-                    setShowTinderSwipe(false);
-                    setShowFinalConfirmation(true);
-                  }}
-                />
-              </section>
-            )}
+              )}
 
-            {/* ── No products found fallback ─────────────────────────────────── */}
-            {finalResult &&
-              !showTinderSwipe &&
-              !showFinalConfirmation &&
-              swipeProducts.length === 0 && (
+              {/* ── Tinder Swipe: Shows directly after AI identifies product ──── */}
+              {finalResult && showTinderSwipe && swipeProducts.length > 0 && (
                 <section className="results-container">
-                  <div className="result-card">
-                    <div className="result-badge">
-                      🎯 AI Identified Exact Want
-                    </div>
-                    <h2 className="result-title">
-                      {finalResult.exact_product}
-                    </h2>
-                    <p className="result-summary">{finalResult.summary}</p>
-                    <p className="text-amber-400 mt-4 text-sm font-['Space_Mono']">
-                      ⚠️ No products returned from MCP. Try a different query.
+                  {/* Small pill showing what AI found */}
+                  <div className="flex flex-col items-center mb-6">
+                    <span className="result-badge mb-2">
+                      🎯 Found: {finalResult.exact_product}
+                    </span>
+                    <p className="text-text/50 text-xs font-['Space_Mono'] text-center">
+                      Swipe ❤️ to add to cart · Swipe ✕ to skip
                     </p>
                   </div>
+                  <TinderSwipe
+                    products={swipeProducts}
+                    onSwipeRight={(prod) => {
+                      handleAddToCart(
+                        prod.id,
+                        prod.name,
+                        prod.price,
+                        1,
+                        prod.brand || "AI Product",
+                        prod.url,
+                      );
+                    }}
+                    onSwipeLeft={(prod) => {
+                      console.log("Passed on", prod.name);
+                    }}
+                    onComplete={() => {
+                      setShowTinderSwipe(false);
+                      setShowFinalConfirmation(true);
+                    }}
+                  />
                 </section>
               )}
 
-            {/* Legacy block placeholder - keep opening tag for other existing sections */}
-            {finalResult && <section style={{ display: "none" }}></section>}
-
-            {/* ── Final Confirmation ─────────────────────────────────────── */}
-            {showFinalConfirmation && (
-              <section className="results-container">
-                <h2 className="text-3xl font-bold font-['Oswald'] text-center text-text uppercase mb-6">
-                  🛒 Final Confirmation
-                </h2>
-                {cartItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-text/60 font-['Space_Mono']">
-                      No items were added to cart.
-                    </p>
-                    <button className="mt-6 reset-btn" onClick={resetAll}>
-                      Start New Search 🔄
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl mx-auto mb-8">
-                      {cartItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="border border-accent/40 bg-white dark:bg-black/80 p-5 rounded-xl flex items-center justify-between shadow-[0_0_20px_rgba(221,198,85,0.15)]"
-                        >
-                          <div>
-                            <div className="text-xs text-text/50 uppercase font-['Space_Mono'] mb-1">
-                              {item.source}
-                            </div>
-                            <div className="text-lg font-bold text-text">
-                              {item.name}
-                            </div>
-                            <div className="text-accent mt-2 font-bold font-['Space_Mono']">
-                              ₹{item.price} × {item.quantity}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="text-red-500 hover:bg-red-500/20 p-2 rounded-full transition-colors text-xl"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+              {/* ── No products found fallback ─────────────────────────────────── */}
+              {finalResult &&
+                !showTinderSwipe &&
+                !showFinalConfirmation &&
+                swipeProducts.length === 0 && (
+                  <section className="results-container">
+                    <div className="result-card">
+                      <div className="result-badge">
+                        🎯 AI Identified Exact Want
+                      </div>
+                      <h2 className="result-title">
+                        {finalResult.exact_product}
+                      </h2>
+                      <p className="result-summary">{finalResult.summary}</p>
+                      <p className="text-amber-400 mt-4 text-sm font-['Space_Mono']">
+                        ⚠️ No products returned from MCP. Try a different query.
+                      </p>
                     </div>
-                    <div className="border border-accent/40 bg-white dark:bg-black/80 p-8 rounded-xl w-full max-w-md mx-auto text-center">
-                      <div className="text-text/60 mb-2 font-['Space_Mono'] text-sm">
-                        Grand Total
-                      </div>
-                      <div className="text-5xl font-bold text-accent mb-6">
-                        ₹{grandTotal}
-                      </div>
-                      <button
-                        onClick={handlePlaceOrder}
-                        disabled={isProcessingPayment}
-                        className="w-full bg-accent text-bg font-bold font-['Oswald'] uppercase tracking-widest py-4 rounded-lg hover:opacity-90 transition-opacity text-lg"
-                      >
-                        {isProcessingPayment
-                          ? "Processing..."
-                          : "Confirm & Buy ✅"}
-                      </button>
-                      <button
-                        className="mt-4 w-full reset-btn"
+                  </section>
+                )}
+
+              {/* Legacy block placeholder - keep opening tag for other existing sections */}
+              {finalResult && <section style={{ display: "none" }}></section>}
+
+              {/* ── Final Confirmation ─────────────────────────────────────── */}
+              {showFinalConfirmation && (
+                <section className="results-container">
+                  <h2 className="text-3xl font-bold font-['Oswald'] text-center text-text uppercase mb-6">
+                    🛒 Final Confirmation
+                  </h2>
+                  {cartItems.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-text/60 font-['Space_Mono']">
+                        No items were added to cart.
+                      </p>
+                      <SpecularButton
+                        size="md"
+                        className="mt-6 reset-btn"
                         onClick={resetAll}
                       >
                         Start New Search 🔄
-                      </button>
-                    </div>
-                  </>
-                )}
-              </section>
-            )}
-
-            {/* ── EXPANDED SWIGGY FOOD DISH MODAL ───────────────────────────── */}
-            {activeFoodDish && (
-              <div
-                className="modal-backdrop"
-                onClick={() => setActiveFoodDish(null)}
-              >
-                <div
-                  className="modal-content modal-content--full-details"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    className="modal-close-btn"
-                    onClick={() => setActiveFoodDish(null)}
-                    aria-label="Close details"
-                  >
-                    ✕
-                  </button>
-
-                  <div className="modal-details-container">
-                    <div className="modal-header-section">
-                      <div className="modal-badge-group">
-                        <span className="modal-brand-tag">
-                          {activeFoodDish.restaurant}
-                        </span>
-                        <span className="modal-delivery-tag">
-                          ⚡ Food Delivery ({activeFoodDish.delivery_time})
-                        </span>
-                        <span className="modal-mcp-badge">
-                          mcp.swiggy.com/food
-                        </span>
-                      </div>
-                      <h2 className="modal-title">{activeFoodDish.name}</h2>
-                    </div>
-
-                    <div className="modal-price-box">
-                      <div className="modal-price-main">
-                        <span className="modal-current-price">
-                          ₹{activeFoodDish.price}
-                        </span>
-                        {activeFoodDish.original_price &&
-                          activeFoodDish.original_price >
-                            activeFoodDish.price && (
-                            <>
-                              <span className="modal-original-price">
-                                ₹{activeFoodDish.original_price}
-                              </span>
-                              <span className="modal-discount-tag">
-                                {Math.round(
-                                  ((activeFoodDish.original_price -
-                                    activeFoodDish.price) /
-                                    activeFoodDish.original_price) *
-                                    100,
-                                )}
-                                % OFF
-                              </span>
-                              <span className="modal-save-amount">
-                                Save ₹
-                                {activeFoodDish.original_price -
-                                  activeFoodDish.price}
-                              </span>
-                            </>
-                          )}
-                      </div>
-                      <p className="modal-tax-note">
-                        Includes all food preparation & packaging charges
-                      </p>
-                    </div>
-
-                    <div className="modal-spec-grid">
-                      <div className="spec-item">
-                        <span className="spec-label">🍽️ Portion / Serving</span>
-                        <span className="spec-value">
-                          {activeFoodDish.portion ||
-                            "Standard Portion (Serves 1-2)"}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🍲 Cuisine Type</span>
-                        <span className="spec-value">
-                          {activeFoodDish.cuisine || "Multi-Cuisine"}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🌱 Dietary Badge</span>
-                        <span className="spec-value">
-                          {activeFoodDish.is_veg !== false
-                            ? "🟢 Pure Veg Dish"
-                            : "🔴 Non-Veg Dish"}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⭐ Restaurant Rating</span>
-                        <span className="spec-value">
-                          {activeFoodDish.rating || 4.5} / 5.0 (Swiggy Verified)
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⚡ Delivery Time</span>
-                        <span className="spec-value">
-                          {activeFoodDish.delivery_time}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🏢 Provider Endpoint</span>
-                        <span className="spec-value">mcp.swiggy.com/food</span>
-                      </div>
-                    </div>
-
-                    <div className="modal-highlights">
-                      <h4 className="modal-highlights-title">
-                        Swiggy Food Freshness & Quality Assurance
-                      </h4>
-                      <ul className="modal-highlights-list">
-                        <li>
-                          🔥 Prepared fresh on order receipt in hygienic
-                          restaurant kitchens
-                        </li>
-                        <li>
-                          📦 Spill-proof, eco-friendly insulated hot delivery
-                          container
-                        </li>
-                        <li>
-                          ⚡ Live GPS courier tracking straight to your doorstep
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="modal-actions">
-                      <div className="modal-qty-selector">
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() =>
-                            setModalItemQty((q) => Math.max(1, q - 1))
-                          }
-                        >
-                          -
-                        </button>
-                        <span className="modal-qty-num">{modalItemQty}</span>
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() => setModalItemQty((q) => q + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        className="modal-add-cart-btn"
-                        onClick={() => {
-                          handleAddToCart(
-                            activeFoodDish.id,
-                            activeFoodDish.name,
-                            activeFoodDish.price,
-                            modalItemQty,
-                            "Swiggy Food",
-                            activeFoodDish.url,
-                          );
-                          setActiveFoodDish(null);
-                        }}
-                      >
-                        Add {modalItemQty} Dish to Food Cart • ₹
-                        {activeFoodDish.price * modalItemQty}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── EXPANDED SWIGGY GROCERY PRODUCT MODAL ─────────────────────── */}
-            {activeProduct && (
-              <div
-                className="modal-backdrop"
-                onClick={() => setActiveProduct(null)}
-              >
-                <div
-                  className="modal-content modal-content--full-details"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    className="modal-close-btn"
-                    onClick={() => setActiveProduct(null)}
-                    aria-label="Close details"
-                  >
-                    ✕
-                  </button>
-
-                  <div className="modal-details-container">
-                    <div className="modal-header-section">
-                      <div className="modal-badge-group">
-                        <span className="modal-brand-tag">
-                          {activeProduct.brand}
-                        </span>
-                        <span className="modal-delivery-tag">
-                          ⚡ Express Delivery ({activeProduct.delivery_time})
-                        </span>
-                        <span className="modal-mcp-badge">
-                          Swiggy Instamart Verified
-                        </span>
-                      </div>
-                      <h2 className="modal-title">{activeProduct.name}</h2>
-                    </div>
-
-                    <div className="modal-price-box">
-                      <div className="modal-price-main">
-                        <span className="modal-current-price">
-                          ₹{activeProduct.price}
-                        </span>
-                        {activeProduct.original_price &&
-                          activeProduct.original_price >
-                            activeProduct.price && (
-                            <>
-                              <span className="modal-original-price">
-                                ₹{activeProduct.original_price}
-                              </span>
-                              <span className="modal-discount-tag">
-                                {Math.round(
-                                  ((activeProduct.original_price -
-                                    activeProduct.price) /
-                                    activeProduct.original_price) *
-                                    100,
-                                )}
-                                % OFF
-                              </span>
-                              <span className="modal-save-amount">
-                                Save ₹
-                                {activeProduct.original_price -
-                                  activeProduct.price}
-                              </span>
-                            </>
-                          )}
-                      </div>
-                      <p className="modal-tax-note">
-                        Price inclusive of all taxes • Swiggy Instamart Instant
-                        Billing
-                      </p>
-                    </div>
-
-                    <div className="modal-spec-grid">
-                      <div className="spec-item">
-                        <span className="spec-label">📦 Pack Quantity</span>
-                        <span className="spec-value">
-                          {activeProduct.quantity}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⚡ Delivery Speed</span>
-                        <span className="spec-value">
-                          {activeProduct.delivery_time}
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⭐ Rating & Reviews</span>
-                        <span className="spec-value">
-                          {activeProduct.rating || 4.8} / 5.0 (Instamart
-                          Verified)
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">
-                          🟢 Stock Availability
-                        </span>
-                        <span className="spec-value">
-                          Available at Nearest Dark Store
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🌿 Dietary / Quality</span>
-                        <span className="spec-value">
-                          100% Vegetarian & Quality Checked
-                        </span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🏢 Provider Endpoint</span>
-                        <span className="spec-value">mcp.swiggy.com/im</span>
-                      </div>
-                    </div>
-
-                    <div className="modal-highlights">
-                      <h4 className="modal-highlights-title">
-                        Swiggy Instamart Assured Guarantees
-                      </h4>
-                      <ul className="modal-highlights-list">
-                        <li>🌿 100% Fresh & Authentic Product Sourcing</li>
-                        <li>
-                          ⚡ Delivered under 15 minutes straight from
-                          temperature-controlled dark stores
-                        </li>
-                        <li>📦 Hygienic, tamper-evident sealed packaging</li>
-                        <li>
-                          🔄 Instant refund / replacement guarantee if damaged
-                          or unsatisfied
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="modal-actions">
-                      <div className="modal-qty-selector">
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() =>
-                            setModalItemQty((q) => Math.max(1, q - 1))
-                          }
-                        >
-                          -
-                        </button>
-                        <span className="modal-qty-num">{modalItemQty}</span>
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() => setModalItemQty((q) => q + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        className="modal-add-cart-btn"
-                        onClick={() => {
-                          handleAddToCart(
-                            activeProduct.id,
-                            activeProduct.name,
-                            activeProduct.price,
-                            modalItemQty,
-                            "Swiggy Instamart",
-                            activeProduct.url,
-                          );
-                          setActiveProduct(null);
-                        }}
-                      >
-                        Add {modalItemQty} to Instamart Cart • ₹
-                        {activeProduct.price * modalItemQty}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-            {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
-            {questions.length > 0 && !finalResult && (
-              <section className="mcq-section">
-                <div className="mcq-header">
-                  <div className="mcq-badge">Optional Clarifications</div>
-                  <h3 className="mcq-title"><ShinyText text="Narrow down what you want" /></h3>
-                  <p className="mcq-subtitle">
-                    Answer these 4 questions to help AI zero in on your exact preference (or skip ahead).
-                  </p>
-                </div>
-
-                <div className="w-full">
-                  <QuestionFlow
-                    questions={questions.map(q => ({
-                      id: String(q.id),
-                      type: "multi_choice",
-                      question: q.question,
-                      options: q.options
-                    } as any))}
-                    answers={Object.fromEntries(Object.entries(selectedAnswers).map(([k, v]) => [String(k), v]))}
-                    onAnswer={(id, val) => handleOptionSelect(Number(id), String(val))}
-                    activeQuestionId={questions.find((q) => !selectedAnswers[q.id]) ? String(questions.find((q) => !selectedAnswers[q.id])!.id) : null}
-                    liveVoiceText=""
-                  />
-                </div>
-
-                <div className="mcq-actions">
-                  <button
-                    className="cta-btn"
-                    onClick={handleFinalizeProduct}
-                    disabled={finalizing}
-                  >
-                    {finalizing ? (
-                      <>
-                        <span className="cta-btn__spinner" />
-                        Fetching...
-                      </>
-                    ) : (
-                      <>
-                        Narrow Down Exact Want ✨
-                      </>
-                    )}
-                  </button>
-                </div>
-              </section>
-            )}
-
-
-            {plannerResults && plannerResults.tracks && (
-              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, backgroundColor: 'var(--bg)', overflowY: 'auto' }}>
-                <ProductSwipeView
-                  tracks={plannerResults.tracks}
-                  goal={query}
-                  summary={plannerResults.summary}
-                  answers={selectedAnswers}
-                  onReset={() => {
-                    setPlannerResults(null);
-                    setQuery("");
-                    setQuestions([]);
-                    setSelectedAnswers({});
-                  }}
-                />
-              </div>
-            )}
-
-            {/* ── Final Result Card & Swiggy Catalog Grid ──────────────────── */}
-            {finalResult && (
-              <section className="results-container">
-                {/* AI Summary Card */}
-                <div className="result-card">
-                  <div className="result-badge">🎯 AI Identified Exact Want</div>
-                  <h2 className="result-title">{finalResult.exact_product}</h2>
-                  <p className="result-summary">{finalResult.summary}</p>
-
-                  {finalResult.key_attributes && finalResult.key_attributes.length > 0 && (
-                    <div className="result-tags">
-                      {finalResult.key_attributes.map((attr, i) => (
-                        <span key={i} className="result-tag">
-                          #{attr}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="console-notice">
-                    <span>💻</span> Output logged to Developer Console (`console.log`)
-                  </div>
-                </div>
-
-                {/* ✨ Beauty MCP Section */}
-                {finalResult.beauty_mcp && (
-                  <section className="swiggy-section">
-                    <div className="swiggy-header">
-                      <div className="swiggy-title-group">
-                        <span className="swiggy-logo">✨</span>
-                        <div>
-                          <h3 className="swiggy-heading">Beauty & Grooming Catalog</h3>
-                          <p className="swiggy-mcp-tag">
-                            Connected to <code>{finalResult.beauty_mcp.mcp_server}</code>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="swiggy-match-status">
-                        <span className="match-pill">
-                          {finalResult.beauty_mcp.is_exact_match ? "Top Recommended Products" : "Similar Brands"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="swiggy-notice-text">
-                      {finalResult.beauty_mcp.match_notice}
-                    </p>
-
-                    <div className="swiggy-grid">
-                      {finalResult.beauty_mcp.products.map((prod) => {
-                        const discount =
-                          prod.original_price && prod.original_price > prod.price
-                            ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                            : null;
-
-                        return (
-                          <div
-                            key={prod.id}
-                            className="swiggy-card swiggy-card--text-focused"
-                            onClick={() => openProductModal(prod)}
-                            title="Click to view full product details"
-                          >
-                            <div className="swiggy-card-top-bar">
-                              <span className="swiggy-delivery-badge">
-                                ⚡ {prod.delivery_time || "2-3 days"}
-                              </span>
-                              <WatchlistIconButton item={prod} />
-                              {prod.is_ai_recommended && (
-                                <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-image-container">
-                              {prod.image_url ? (
-                                <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                              ) : (
-                                <div className="swiggy-card-emoji-fallback">{prod.emoji || "✨"}</div>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-body">
-                              <span className="swiggy-brand">{prod.brand}</span>
-                              <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                              <div className="swiggy-meta-pills">
-                                {prod.quantity && <span className="swiggy-pill">📦 {prod.quantity}</span>}
-                                {prod.rating && (
-                                  <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                                )}
-                              </div>
-
-                              <div className="swiggy-footer">
-                                <div className="swiggy-price-wrap">
-                                  <span className="swiggy-price">₹{prod.price}</span>
-                                  {prod.original_price && prod.original_price > prod.price && (
-                                    <>
-                                      <span className="swiggy-orig-price">
-                                        ₹{prod.original_price}
-                                      </span>
-                                      {discount && (
-                                        <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                                <button
-                                  className="swiggy-add-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(prod.id, prod.name, prod.price, 1, "Shopify MCP", prod.url);
-                                  }}
-                                >
-                                  Add
-                                </button>
-                                <WatchlistActionButton item={prod} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {/* 👟 Footwear & Apparel MCP Section */}
-                {finalResult.apparel_mcp && (
-                  <section className="swiggy-section">
-                    <div className="swiggy-header">
-                      <div className="swiggy-title-group">
-                        <span className="swiggy-logo">👟</span>
-                        <div>
-                          <h3 className="swiggy-heading">Footwear & Apparel Catalog</h3>
-                          <p className="swiggy-mcp-tag">
-                            Connected to <code>{finalResult.apparel_mcp.mcp_server}</code>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="swiggy-match-status">
-                        <span className="match-pill">
-                          {finalResult.apparel_mcp.is_exact_match ? "Top Recommended Matches" : "Similar Styles"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="swiggy-notice-text">
-                      {finalResult.apparel_mcp.match_notice}
-                    </p>
-
-                    <div className="swiggy-grid">
-                      {finalResult.apparel_mcp.products.map((prod) => {
-                        const discount =
-                          prod.original_price && prod.original_price > prod.price
-                            ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                            : null;
-
-                        return (
-                          <div
-                            key={prod.id}
-                            className="swiggy-card swiggy-card--text-focused"
-                            onClick={() => openProductModal(prod)}
-                            title="Click to view full product details"
-                          >
-                            <div className="swiggy-card-top-bar">
-                              <span className="swiggy-delivery-badge">
-                                ⚡ {prod.delivery_time || "3-5 days"}
-                              </span>
-                              <WatchlistIconButton item={prod} />
-                              {prod.is_ai_recommended && (
-                                <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-image-container">
-                              {prod.image_url ? (
-                                <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                              ) : (
-                                <div className="swiggy-card-emoji-fallback">{prod.emoji || "👟"}</div>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-body">
-                              <span className="swiggy-brand">{prod.brand}</span>
-                              <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                              <div className="swiggy-meta-pills">
-                                {prod.quantity && <span className="swiggy-pill">👕 {prod.quantity}</span>}
-                                {prod.rating && (
-                                  <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                                )}
-                              </div>
-
-                              <div className="swiggy-footer">
-                                <div className="swiggy-price-wrap">
-                                  <span className="swiggy-price">₹{prod.price}</span>
-                                  {prod.original_price && prod.original_price > prod.price && (
-                                    <>
-                                      <span className="swiggy-orig-price">
-                                        ₹{prod.original_price}
-                                      </span>
-                                      {discount && (
-                                        <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                                <button
-                                  className="swiggy-add-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(prod.id, prod.name, prod.price, 1, "Shopify Apparel", prod.url);
-                                  }}
-                                >
-                                  Add
-                                </button>
-                                <WatchlistActionButton item={prod} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {/* 🍕 Swiggy Food MCP Section (Only for Food Category) */}
-                {finalResult.swiggy_food_mcp && (
-                  <section className="swiggy-section">
-                    <div className="swiggy-header">
-                      <div className="swiggy-title-group">
-                        <span className="swiggy-logo">🍕</span>
-                        <div>
-                          <h3 className="swiggy-heading">Swiggy Food Delivery Catalog</h3>
-                          <p className="swiggy-mcp-tag">
-                            Connected to <code>mcp.swiggy.com/food</code>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="swiggy-match-status">
-                        <span className="match-pill">
-                          {finalResult.swiggy_food_mcp.is_exact_match ? "Top Recommended Dishes" : "Similar Restaurants"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="swiggy-notice-text">
-                      {finalResult.swiggy_food_mcp.match_notice} (Click any dish card to view restaurant specs)
-                    </p>
-
-                    {/* Swiggy Food Dishes Grid */}
-                    <div className="swiggy-grid">
-                      {finalResult.swiggy_food_mcp.products.map((dish) => {
-                        const discount =
-                          dish.original_price && dish.original_price > dish.price
-                            ? Math.round(((dish.original_price - dish.price) / dish.original_price) * 100)
-                            : null;
-
-                        return (
-                          <div
-                            key={dish.id}
-                            className="swiggy-card swiggy-card--text-focused"
-                            onClick={() => openFoodModal(dish)}
-                            title="Click to view full restaurant & dish details"
-                          >
-                            {/* Top Speed & Veg/Non-Veg Header */}
-                            <div className="swiggy-card-top-bar">
-                              <span className="swiggy-delivery-badge">
-                                ⚡ {dish.delivery_time}
-                              </span>
-                              <WatchlistIconButton item={dish} />
-                              <span className={`diet-pill ${dish.is_veg !== false ? "diet-pill--veg" : "diet-pill--nonveg"}`}>
-                                {dish.is_veg !== false ? "🟢 Pure Veg" : "🔴 Non-Veg"}
-                              </span>
-                              {dish.is_ai_recommended && (
-                                <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-image-container">
-                              {dish.image_url ? (
-                                <img src={dish.image_url} alt={dish.name} className="swiggy-card-img" />
-                              ) : (
-                                <div className="swiggy-card-emoji-fallback">{dish.emoji || "🍽️"}</div>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-body">
-                              <span className="swiggy-brand">{dish.restaurant}</span>
-                              <h4 className="swiggy-prod-name">{dish.name}</h4>
-
-                              <div className="swiggy-meta-pills">
-                                {dish.portion && <span className="swiggy-pill">🍽️ {dish.portion}</span>}
-                                {dish.cuisine && <span className="swiggy-pill">🍲 {dish.cuisine}</span>}
-                                {dish.rating && (
-                                  <span className="swiggy-pill swiggy-pill--star">⭐ {dish.rating}</span>
-                                )}
-                              </div>
-
-                              <div className="swiggy-feature-tags">
-                                <span className="feature-tag">🔥 Best Seller</span>
-                                <span className="feature-tag">⚡ Swiggy Express</span>
-                              </div>
-
-                              <div className="swiggy-footer">
-                                <div className="swiggy-price-wrap">
-                                  <span className="swiggy-price">₹{dish.price}</span>
-                                  {dish.original_price && dish.original_price > dish.price && (
-                                    <>
-                                      <span className="swiggy-orig-price">
-                                        ₹{dish.original_price}
-                                      </span>
-                                      {discount && (
-                                        <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                <button
-                                  className="swiggy-add-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(dish.id, dish.name, dish.price, 1, "Swiggy Food", dish.url);
-                                  }}
-                                >
-                                  ORDER +
-                                </button>
-                                <WatchlistActionButton item={dish} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {/* 🛒 Swiggy Instamart Grocery Section (Only for Groceries Category) */}
-                {finalResult.swiggy_mcp && (
-                  <section className="swiggy-section">
-                    <div className="swiggy-header">
-                      <div className="swiggy-title-group">
-                        <span className="swiggy-logo">⚡</span>
-                        <div>
-                          <h3 className="swiggy-heading">Swiggy Instamart Catalog</h3>
-                          <p className="swiggy-mcp-tag">
-                            Connected to <code>mcp.swiggy.com/im</code>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="swiggy-match-status">
-                        <span className="match-pill">
-                          {finalResult.swiggy_mcp.is_exact_match ? "Exact & Related Items" : "Similar Items"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="swiggy-notice-text">
-                      {finalResult.swiggy_mcp.match_notice} (Click any card to view full product details & specs)
-                    </p>
-
-                    {/* 5+ Grocery Products Detailed Text Grid */}
-                    <div className="swiggy-grid">
-                      {finalResult.swiggy_mcp.products.map((prod) => {
-                        const discount =
-                          prod.original_price && prod.original_price > prod.price
-                            ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                            : null;
-
-                        return (
-                          <div
-                            key={prod.id}
-                            className="swiggy-card swiggy-card--text-focused"
-                            onClick={() => openProductModal(prod)}
-                            title="Click to view full product details"
-                          >
-                            {/* Top Speed & Match Header */}
-                            <div className="swiggy-card-top-bar">
-                              <span className="swiggy-delivery-badge">
-                                ⚡ {prod.delivery_time}
-                              </span>
-                              <WatchlistIconButton item={prod} />
-                              {prod.is_similar ? (
-                                <span className="swiggy-similar-badge">Similar</span>
-                              ) : (
-                                <span className="swiggy-exact-badge">Top Match</span>
-                              )}
-                              {prod.is_ai_recommended && (
-                                <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-image-container">
-                              {prod.image_url ? (
-                                <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                              ) : (
-                                <div className="swiggy-card-emoji-fallback">{prod.emoji || "🛒"}</div>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-body">
-                              <span className="swiggy-brand">{prod.brand}</span>
-                              <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                              <div className="swiggy-meta-pills">
-                                <span className="swiggy-pill">📦 {prod.quantity}</span>
-                                {prod.rating && (
-                                  <span className="swiggy-pill swiggy-pill--star">⭐ {prod.rating}</span>
-                                )}
-                                <span className="swiggy-pill swiggy-pill--stock">🟢 In Stock</span>
-                              </div>
-
-                              <div className="swiggy-feature-tags">
-                                <span className="feature-tag">🌿 Fresh Quality</span>
-                                <span className="feature-tag">⚡ Express Instamart</span>
-                              </div>
-
-                              <div className="swiggy-footer">
-                                <div className="swiggy-price-wrap">
-                                  <span className="swiggy-price">₹{prod.price}</span>
-                                  {prod.original_price && prod.original_price > prod.price && (
-                                    <>
-                                      <span className="swiggy-orig-price">
-                                        ₹{prod.original_price}
-                                      </span>
-                                      {discount && (
-                                        <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                <button
-                                  className="swiggy-add-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(prod.id, prod.name, prod.price, 1, "Swiggy Instamart", prod.url);
-                                  }}
-                                >
-                                  ADD +
-                                </button>
-                                <WatchlistActionButton item={prod} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {/* 🍽️ Swiggy Dineout Section (Only for Reservation Category) */}
-                {finalResult.swiggy_dineout_mcp && (
-                  <section className="swiggy-section">
-                    <div className="swiggy-header">
-                      <div className="swiggy-title-group">
-                        <span className="swiggy-logo">🍽️</span>
-                        <div>
-                          <h3 className="swiggy-heading">Swiggy Dineout Reservations</h3>
-                          <p className="swiggy-mcp-tag">
-                            Connected to <code>mcp.swiggy.com/dineout</code>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="swiggy-match-status">
-                        <span className="match-pill">
-                          {finalResult.swiggy_dineout_mcp.is_exact_match ? "Top Recommended Restaurants" : "Similar Restaurants"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="swiggy-notice-text">
-                      {finalResult.swiggy_dineout_mcp.match_notice} (Click Reserve to secure a table)
-                    </p>
-
-                    <div className="swiggy-grid">
-                      {finalResult.swiggy_dineout_mcp.products.map((prod) => {
-                        const discount =
-                          prod.original_price && prod.original_price > prod.price
-                            ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-                            : null;
-
-                        return (
-                          <div
-                            key={prod.id}
-                            className="swiggy-card swiggy-card--text-focused"
-                            title="Click to reserve table"
-                          >
-                            <div className="swiggy-card-top-bar">
-                              <span className="swiggy-delivery-badge">
-                                📍 {prod.location}
-                              </span>
-                              <WatchlistIconButton item={prod} />
-                              {prod.is_ai_recommended && (
-                                <span className="swiggy-exact-badge" style={{ background: 'var(--theme-accent)', marginLeft: 'auto' }}>✨ AI Recommended</span>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-image-container">
-                              {prod.image_url ? (
-                                <img src={prod.image_url} alt={prod.name} className="swiggy-card-img" />
-                              ) : (
-                                <div className="swiggy-card-emoji-fallback">{prod.emoji || "🍽️"}</div>
-                              )}
-                            </div>
-
-                            <div className="swiggy-card-body">
-                              <span className="swiggy-brand">{prod.cuisine}</span>
-                              <h4 className="swiggy-prod-name">{prod.name}</h4>
-
-                              <div className="swiggy-meta-pills">
-                                <span className="swiggy-pill">⭐ {prod.rating}</span>
-                                <span className="swiggy-pill">{prod.table_available ? "🟢 Table Available" : "🔴 Waitlist"}</span>
-                              </div>
-
-                              <div className="swiggy-feature-tags">
-                                {prod.discount && <span className="feature-tag">🏷️ {prod.discount}</span>}
-                              </div>
-
-                              <div className="swiggy-footer">
-                                <div className="swiggy-price-wrap">
-                                  <span className="swiggy-price">₹{prod.price}</span>
-                                  {prod.original_price && prod.original_price > prod.price && (
-                                    <>
-                                      <span className="swiggy-orig-price">
-                                        ₹{prod.original_price}
-                                      </span>
-                                      {discount && (
-                                        <span className="swiggy-discount-pill">{discount}% OFF</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                <button
-                                  className="swiggy-add-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddToCart(prod.id, prod.name, prod.price, 1, "Swiggy Dineout", prod.url);
-                                  }}
-                                >
-                                  Reserve
-                                </button>
-                                <WatchlistActionButton item={prod} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                <button className="reset-btn" onClick={resetAll}>
-                  Start New Search 🔄
-                </button>
-              </section>
-            )}
-
-            {/* ── EXPANDED SWIGGY FOOD DISH MODAL ───────────────────────────── */}
-            {activeFoodDish && (
-              <div className="modal-backdrop" onClick={() => setActiveFoodDish(null)}>
-                <div className="modal-content modal-content--full-details" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="modal-close-btn"
-                    onClick={() => setActiveFoodDish(null)}
-                    aria-label="Close details"
-                  >
-                    ✕
-                  </button>
-
-                  <div className="modal-details-container">
-                    <div className="modal-header-section">
-                      <div className="modal-badge-group">
-                        <span className="modal-brand-tag">{activeFoodDish.restaurant}</span>
-                        <span className="modal-delivery-tag">
-                          ⚡ Food Delivery ({activeFoodDish.delivery_time})
-                        </span>
-                        <span className="modal-mcp-badge">mcp.swiggy.com/food</span>
-                      </div>
-                      <h2 className="modal-title">{activeFoodDish.name}</h2>
-                    </div>
-
-                    <div className="modal-price-box">
-                      <div className="modal-price-main">
-                        <span className="modal-current-price">₹{activeFoodDish.price}</span>
-                        {activeFoodDish.original_price && activeFoodDish.original_price > activeFoodDish.price && (
-                          <>
-                            <span className="modal-original-price">₹{activeFoodDish.original_price}</span>
-                            <span className="modal-discount-tag">
-                              {Math.round(
-                                ((activeFoodDish.original_price - activeFoodDish.price) /
-                                  activeFoodDish.original_price) *
-                                100
-                              )}
-                              % OFF
-                            </span>
-                            <span className="modal-save-amount">
-                              Save ₹{activeFoodDish.original_price - activeFoodDish.price}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <p className="modal-tax-note">Includes all food preparation & packaging charges</p>
-                    </div>
-
-                    <div className="modal-spec-grid">
-                      <div className="spec-item">
-                        <span className="spec-label">🍽️ Portion / Serving</span>
-                        <span className="spec-value">{activeFoodDish.portion || "Standard Portion (Serves 1-2)"}</span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🍲 Cuisine Type</span>
-                        <span className="spec-value">{activeFoodDish.cuisine || "Multi-Cuisine"}</span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🌱 Dietary Badge</span>
-                        <span className="spec-value">{activeFoodDish.is_veg !== false ? "🟢 Pure Veg Dish" : "🔴 Non-Veg Dish"}</span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⭐ Restaurant Rating</span>
-                        <span className="spec-value">{activeFoodDish.rating || 4.5} / 5.0 (Swiggy Verified)</span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">⚡ Delivery Time</span>
-                        <span className="spec-value">{activeFoodDish.delivery_time}</span>
-                      </div>
-                      <div className="spec-item">
-                        <span className="spec-label">🏢 Provider Endpoint</span>
-                        <span className="spec-value">mcp.swiggy.com/food</span>
-                      </div>
-                    </div>
-
-                    <div className="modal-highlights">
-                      <h4 className="modal-highlights-title">Swiggy Food Freshness & Quality Assurance</h4>
-                      <ul className="modal-highlights-list">
-                        <li>🔥 Prepared fresh on order receipt in hygienic restaurant kitchens</li>
-                        <li>📦 Spill-proof, eco-friendly insulated hot delivery container</li>
-                        <li>⚡ Live GPS courier tracking straight to your doorstep</li>
-                      </ul>
-                    </div>
-
-                    <div className="modal-actions">
-                      <div className="modal-qty-selector">
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() => setModalItemQty((q) => Math.max(1, q - 1))}
-                        >
-                          -
-                        </button>
-                        <span className="modal-qty-num">{modalItemQty}</span>
-                        <button
-                          className="modal-qty-btn"
-                          onClick={() => setModalItemQty((q) => q + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        className="modal-add-cart-btn"
-                        onClick={() => {
-                          handleAddToCart(activeFoodDish.id, activeFoodDish.name, activeFoodDish.price, modalItemQty, "Swiggy Food", activeFoodDish.url);
-                          setActiveFoodDish(null);
-                        }}
-                      >
-                        Add {modalItemQty} Dish to Food Cart • ₹{activeFoodDish.price * modalItemQty}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-
-            {/* ── CHECKOUT MODAL ────────────────────────────────────── */}
-            {isCheckoutOpen && (
-              <div className="modal-backdrop" onClick={() => setIsCheckoutOpen(false)}>
-                <div
-                  className="modal-content modal-content--full-details checkout-modal-content"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    className="modal-close-btn"
-                    onClick={() => {
-                      setIsCheckoutOpen(false);
-                      setOrderSuccess(false);
-                    }}
-                    aria-label="Close checkout"
-                  >
-                    ✕
-                  </button>
-
-                  {orderSuccess ? (
-                    <div className="checkout-success-container">
-                      <span className="checkout-success-icon">🎉</span>
-                      <h2 className="checkout-success-title">
-                        Order Placed Successfully!
-                      </h2>
-                      <button
-                        className="cta-btn"
-                        style={{ marginTop: "12px" }}
-                        onClick={() => {
-                          setIsCheckoutOpen(false);
-                          setOrderSuccess(false);
-                        }}
-                      >
-                        Done & Continue Swiping ⚡
-                      </button>
+                      </SpecularButton>
                     </div>
                   ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl mx-auto mb-8">
+                        {cartItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="border border-accent/40 bg-white dark:bg-black/80 p-5 rounded-xl flex items-center justify-between shadow-[0_0_20px_rgba(221,198,85,0.15)]"
+                          >
+                            <div>
+                              <div className="text-xs text-text/50 uppercase font-['Space_Mono'] mb-1">
+                                {item.source}
+                              </div>
+                              <div className="text-lg font-bold text-text">
+                                {item.name}
+                              </div>
+                              <div className="text-accent mt-2 font-bold font-['Space_Mono']">
+                                ₹{item.price} × {item.quantity}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="text-red-500 hover:bg-red-500/20 p-2 rounded-full transition-colors text-xl"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border border-accent/40 bg-white dark:bg-black/80 p-8 rounded-xl w-full max-w-md mx-auto text-center">
+                        <div className="text-text/60 mb-2 font-['Space_Mono'] text-sm">
+                          Grand Total
+                        </div>
+                        <div className="text-5xl font-bold text-accent mb-6">
+                          ₹{grandTotal}
+                        </div>
+                        <SpecularButton
+                          size="lg"
+                          onClick={handlePlaceOrder}
+                          disabled={isProcessingPayment}
+                          className="w-full bg-accent text-bg font-bold font-['Oswald'] uppercase tracking-widest py-4 rounded-lg hover:opacity-90 transition-opacity text-lg"
+                        >
+                          {isProcessingPayment
+                            ? "Processing..."
+                            : "Confirm & Buy ✅"}
+                        </SpecularButton>
+                        <SpecularButton
+                          size="md"
+                          className="mt-4 w-full reset-btn"
+                          onClick={resetAll}
+                        >
+                          Start New Search 🔄
+                        </SpecularButton>
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+
+              {/* ── EXPANDED SWIGGY FOOD DISH MODAL ───────────────────────────── */}
+              {activeFoodDish && (
+                <div
+                  className="modal-backdrop"
+                  onClick={() => setActiveFoodDish(null)}
+                >
+                  <div
+                    className="modal-content modal-content--full-details"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="modal-close-btn"
+                      onClick={() => setActiveFoodDish(null)}
+                      aria-label="Close details"
+                    >
+                      ✕
+                    </button>
+
                     <div className="modal-details-container">
-                      <div className="checkout-header">
-                        <h2 className="checkout-title">
-                          <span>🛍️</span> Complete Your Order
-                        </h2>
-                        <span className="cart-header__badge">
-                          {totalCartCount} items
-                        </span>
+                      <div className="modal-header-section">
+                        <div className="modal-badge-group">
+                          <span className="modal-brand-tag">
+                            {activeFoodDish.restaurant}
+                          </span>
+                          <span className="modal-delivery-tag">
+                            ⚡ Food Delivery ({activeFoodDish.delivery_time})
+                          </span>
+                          <span className="modal-mcp-badge">
+                            mcp.swiggy.com/food
+                          </span>
+                        </div>
+                        <h2 className="modal-title">{activeFoodDish.name}</h2>
                       </div>
 
-                      <div className="checkout-section">
-                        <span className="checkout-section-title">
-                          Delivery Address
-                        </span>
-                        <div className="checkout-address-card">
-                          <div className="checkout-address-info">
-                            <span className="checkout-address-tag">
-                              🏡 Home Address
-                            </span>
-                            <span className="checkout-address-text">
-                              122, Indiranagar 100ft Road, Bengaluru, Karnataka
-                              (560038)
-                            </span>
-                          </div>
-                          <span
-                            style={{
-                              fontSize: "0.8rem",
-                              color: "#6c5ce7",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Change
+                      <div className="modal-price-box">
+                        <div className="modal-price-main">
+                          <span className="modal-current-price">
+                            ₹{activeFoodDish.price}
+                          </span>
+                          {activeFoodDish.original_price &&
+                            activeFoodDish.original_price >
+                              activeFoodDish.price && (
+                              <>
+                                <span className="modal-original-price">
+                                  ₹{activeFoodDish.original_price}
+                                </span>
+                                <span className="modal-discount-tag">
+                                  {Math.round(
+                                    ((activeFoodDish.original_price -
+                                      activeFoodDish.price) /
+                                      activeFoodDish.original_price) *
+                                      100,
+                                  )}
+                                  % OFF
+                                </span>
+                                <span className="modal-save-amount">
+                                  Save ₹
+                                  {activeFoodDish.original_price -
+                                    activeFoodDish.price}
+                                </span>
+                              </>
+                            )}
+                        </div>
+                        <p className="modal-tax-note">
+                          Includes all food preparation & packaging charges
+                        </p>
+                      </div>
+
+                      <div className="modal-spec-grid">
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            🍽️ Portion / Serving
+                          </span>
+                          <span className="spec-value">
+                            {activeFoodDish.portion ||
+                              "Standard Portion (Serves 1-2)"}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">🍲 Cuisine Type</span>
+                          <span className="spec-value">
+                            {activeFoodDish.cuisine || "Multi-Cuisine"}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">🌱 Dietary Badge</span>
+                          <span className="spec-value">
+                            {activeFoodDish.is_veg !== false
+                              ? "🟢 Pure Veg Dish"
+                              : "🔴 Non-Veg Dish"}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            ⭐ Restaurant Rating
+                          </span>
+                          <span className="spec-value">
+                            {activeFoodDish.rating || 4.5} / 5.0 (Swiggy
+                            Verified)
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">⚡ Delivery Time</span>
+                          <span className="spec-value">
+                            {activeFoodDish.delivery_time}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            🏢 Provider Endpoint
+                          </span>
+                          <span className="spec-value">
+                            mcp.swiggy.com/food
                           </span>
                         </div>
                       </div>
 
-                      <div className="checkout-section">
-                        <span className="checkout-section-title">
-                          Order Items ({cartItems.length})
-                        </span>
-                        <div className="checkout-order-items">
-                          {cartItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="checkout-order-item-row"
-                            >
-                              <span className="checkout-order-item-name">
-                                {item.quantity}x {item.name}
+                      <div className="modal-highlights">
+                        <h4 className="modal-highlights-title">
+                          Swiggy Food Freshness & Quality Assurance
+                        </h4>
+                        <ul className="modal-highlights-list">
+                          <li>
+                            🔥 Prepared fresh on order receipt in hygienic
+                            restaurant kitchens
+                          </li>
+                          <li>
+                            📦 Spill-proof, eco-friendly insulated hot delivery
+                            container
+                          </li>
+                          <li>
+                            ⚡ Live GPS courier tracking straight to your
+                            doorstep
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div className="modal-actions">
+                        <div className="modal-qty-selector">
+                          <button
+                            className="modal-qty-btn"
+                            onClick={() =>
+                              setModalItemQty((q) => Math.max(1, q - 1))
+                            }
+                          >
+                            -
+                          </button>
+                          <span className="modal-qty-num">{modalItemQty}</span>
+                          <button
+                            className="modal-qty-btn"
+                            onClick={() => setModalItemQty((q) => q + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <SpecularButton
+                          size="md"
+                          className="modal-add-cart-btn"
+                          onClick={() => {
+                            handleAddToCart(
+                              activeFoodDish.id,
+                              activeFoodDish.name,
+                              activeFoodDish.price,
+                              modalItemQty,
+                              "Swiggy Food",
+                              activeFoodDish.url,
+                            );
+                            setActiveFoodDish(null);
+                          }}
+                        >
+                          Add {modalItemQty} Dish to Food Cart • ₹
+                          {activeFoodDish.price * modalItemQty}
+                        </SpecularButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── EXPANDED SWIGGY GROCERY PRODUCT MODAL ─────────────────────── */}
+              {activeProduct && (
+                <div
+                  className="modal-backdrop"
+                  onClick={() => setActiveProduct(null)}
+                >
+                  <div
+                    className="modal-content modal-content--full-details"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="modal-close-btn"
+                      onClick={() => setActiveProduct(null)}
+                      aria-label="Close details"
+                    >
+                      ✕
+                    </button>
+
+                    <div className="modal-details-container">
+                      <div className="modal-header-section">
+                        <div className="modal-badge-group">
+                          <span className="modal-brand-tag">
+                            {activeProduct.brand}
+                          </span>
+                          <span className="modal-delivery-tag">
+                            ⚡ Express Delivery ({activeProduct.delivery_time})
+                          </span>
+                          <span className="modal-mcp-badge">
+                            Swiggy Instamart Verified
+                          </span>
+                        </div>
+                        <h2 className="modal-title">{activeProduct.name}</h2>
+                      </div>
+
+                      <div className="modal-price-box">
+                        <div className="modal-price-main">
+                          <span className="modal-current-price">
+                            ₹{activeProduct.price}
+                          </span>
+                          {activeProduct.original_price &&
+                            activeProduct.original_price >
+                              activeProduct.price && (
+                              <>
+                                <span className="modal-original-price">
+                                  ₹{activeProduct.original_price}
+                                </span>
+                                <span className="modal-discount-tag">
+                                  {Math.round(
+                                    ((activeProduct.original_price -
+                                      activeProduct.price) /
+                                      activeProduct.original_price) *
+                                      100,
+                                  )}
+                                  % OFF
+                                </span>
+                                <span className="modal-save-amount">
+                                  Save ₹
+                                  {activeProduct.original_price -
+                                    activeProduct.price}
+                                </span>
+                              </>
+                            )}
+                        </div>
+                        <p className="modal-tax-note">
+                          Price inclusive of all taxes • Swiggy Instamart
+                          Instant Billing
+                        </p>
+                      </div>
+
+                      <div className="modal-spec-grid">
+                        <div className="spec-item">
+                          <span className="spec-label">📦 Pack Quantity</span>
+                          <span className="spec-value">
+                            {activeProduct.quantity}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">⚡ Delivery Speed</span>
+                          <span className="spec-value">
+                            {activeProduct.delivery_time}
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            ⭐ Rating & Reviews
+                          </span>
+                          <span className="spec-value">
+                            {activeProduct.rating || 4.8} / 5.0 (Instamart
+                            Verified)
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            🟢 Stock Availability
+                          </span>
+                          <span className="spec-value">
+                            Available at Nearest Dark Store
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            🌿 Dietary / Quality
+                          </span>
+                          <span className="spec-value">
+                            100% Vegetarian & Quality Checked
+                          </span>
+                        </div>
+                        <div className="spec-item">
+                          <span className="spec-label">
+                            🏢 Provider Endpoint
+                          </span>
+                          <span className="spec-value">mcp.swiggy.com/im</span>
+                        </div>
+                      </div>
+
+                      <div className="modal-highlights">
+                        <h4 className="modal-highlights-title">
+                          Swiggy Instamart Assured Guarantees
+                        </h4>
+                        <ul className="modal-highlights-list">
+                          <li>🌿 100% Fresh & Authentic Product Sourcing</li>
+                          <li>
+                            ⚡ Delivered under 15 minutes straight from
+                            temperature-controlled dark stores
+                          </li>
+                          <li>📦 Hygienic, tamper-evident sealed packaging</li>
+                          <li>
+                            🔄 Instant refund / replacement guarantee if damaged
+                            or unsatisfied
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div className="modal-actions">
+                        <div className="modal-qty-selector">
+                          <button
+                            className="modal-qty-btn"
+                            onClick={() =>
+                              setModalItemQty((q) => Math.max(1, q - 1))
+                            }
+                          >
+                            -
+                          </button>
+                          <span className="modal-qty-num">{modalItemQty}</span>
+                          <button
+                            className="modal-qty-btn"
+                            onClick={() => setModalItemQty((q) => q + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <SpecularButton
+                          size="md"
+                          className="modal-add-cart-btn"
+                          onClick={() => {
+                            handleAddToCart(
+                              activeProduct.id,
+                              activeProduct.name,
+                              activeProduct.price,
+                              modalItemQty,
+                              "Swiggy Instamart",
+                              activeProduct.url,
+                            );
+                            setActiveProduct(null);
+                          }}
+                        >
+                          Add {modalItemQty} to Instamart Cart • ₹
+                          {activeProduct.price * modalItemQty}
+                        </SpecularButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── CHECKOUT MODAL ────────────────────────────────────── */}
+              {isCheckoutOpen && (
+                <div className="modal-backdrop" onClick={closeCheckout}>
+                  <div
+                    className="modal-content modal-content--full-details checkout-modal-content prava-payment-modal"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className="modal-close-btn"
+                      onClick={closeCheckout}
+                      aria-label="Close checkout"
+                    >
+                      ✕
+                    </button>
+
+                    {orderSuccess ? (
+                      <div className="checkout-success-container">
+                        <span className="checkout-success-icon">🎉</span>
+                        <h2 className="checkout-success-title">
+                          Order Placed Successfully!
+                        </h2>
+                        <p className="checkout-success-sub">
+                          Your order has been confirmed. Swiggy Express partner
+                          is assigned and will deliver your order shortly!
+                        </p>
+                        <SpecularButton
+                          size="md"
+                          className="cta-btn"
+                          style={{ marginTop: "12px" }}
+                          onClick={() => {
+                            closeCheckout();
+                          }}
+                        >
+                          Done & Continue Swiping ⚡
+                        </SpecularButton>
+                      </div>
+                    ) : paymentFailure ? (
+                      <div className="checkout-success-container checkout-failure-container">
+                        <span className="checkout-success-icon">!</span>
+                        <h2 className="checkout-success-title">
+                          Payment failed
+                        </h2>
+                        <p className="checkout-success-sub">{paymentFailure}</p>
+                        <SpecularButton
+                          size="md"
+                          className="cta-btn"
+                          style={{ marginTop: "12px" }}
+                          onClick={closeCheckout}
+                        >
+                          Close
+                        </SpecularButton>
+                      </div>
+                    ) : pravaSessions.length > 0 ? (
+                      <div className="modal-details-container">
+                        <div className="checkout-header">
+                          <h2 className="checkout-title">
+                            {hasPravaCard
+                              ? "Confirm secure payment"
+                              : "Set up secure payment"}
+                          </h2>
+                          <span className="cart-header__badge">
+                            {activePravaSessionIndex + 1} /{" "}
+                            {pravaSessions.length} merchants
+                          </span>
+                        </div>
+                        <p className="checkout-section-title">
+                          {pravaPaymentStatus}
+                        </p>
+                        <p className="checkout-address-text">
+                          {hasPravaCard
+                            ? "Your saved Prava card is being used for this purchase. Approve the secure request and merchant payments will be coordinated automatically."
+                            : "Add your card once in Prava's secure light form. Your card details never reach Autocart, and future purchases can use the saved card."}
+                        </p>
+                        {pravaSessions[activePravaSessionIndex]?.iframe_url &&
+                        pravaSessions[activePravaSessionIndex]
+                          ?.session_token ? (
+                          <PravaPaymentFrame
+                            session={pravaSessions[activePravaSessionIndex]}
+                            onSuccess={() => {
+                              window.localStorage.setItem(
+                                "prava-card-enrolled",
+                                "true",
+                              );
+                              setHasPravaCard(true);
+                              setPravaPaymentStatus(
+                                "Payment authorization received. Finalizing...",
+                              );
+                            }}
+                            onError={(message) => {
+                              setIsProcessingPayment(false);
+                              setPaymentFailure(message);
+                              setPravaPaymentStatus(message);
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="checkout-address-card"
+                            style={{ marginTop: "16px" }}
+                          >
+                            Secure payment URL was not returned for{" "}
+                            {pravaSessions[activePravaSessionIndex]
+                              ?.merchant_name || "this merchant"}
+                            .
+                          </div>
+                        )}
+                      </div>
+                    ) : false ? (
+                      <div className="modal-details-container">
+                        <div className="checkout-header">
+                          <h2 className="checkout-title">
+                            <span>🛍️</span> Complete Your Order
+                          </h2>
+                          <span className="cart-header__badge">
+                            {totalCartCount} items
+                          </span>
+                        </div>
+
+                        <div className="checkout-section">
+                          <span className="checkout-section-title">
+                            Delivery Address
+                          </span>
+                          <div className="checkout-address-card">
+                            <div className="checkout-address-info">
+                              <span className="checkout-address-tag">
+                                🏡 Home Address
                               </span>
-                              <span className="checkout-order-item-price">
-                                ₹{item.price * item.quantity}
+                              <span className="checkout-address-text">
+                                122, Indiranagar 100ft Road, Bengaluru,
+                                Karnataka (560038)
                               </span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="checkout-section">
-                        <span className="checkout-section-title">
-                          Select Payment Method
-                        </span>
-                        <div className="checkout-payment-methods">
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "upi"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("upi")}
-                          >
-                            <span className="payment-method-icon">⚡</span>
-                            <span>UPI / GPay</span>
-                          </div>
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "card"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("card")}
-                          >
-                            <span className="payment-method-icon">💳</span>
-                            <span>Card</span>
-                          </div>
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "cod"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("cod")}
-                          >
-                            <span className="payment-method-icon">💵</span>
-                            <span>Cash</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="cart-summary-rows"
-                        style={{
-                          background: "rgba(255,255,255,0.02)",
-                          padding: "12px",
-                          borderRadius: "10px",
-                        }}
-                      >
-                        <div className="cart-summary-row">
-                          <span>Subtotal</span>
-                          <span>₹{cartSubtotal}</span>
-                        </div>
-                        <div className="cart-summary-row">
-                          <span>Delivery Fee</span>
-                          <span>
-                            {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
-                          </span>
-                        </div>
-                        <div className="cart-summary-row">
-                          <span>Taxes & Platform</span>
-                          <span>₹{taxesAndFees}</span>
-                        </div>
-                        <div className="cart-summary-row cart-summary-row--total">
-                          <span>Total Amount Payable</span>
-                          <span style={{ color: "#34d399" }}>
-                            ₹{grandTotal}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        className="cart-checkout-btn"
-                        disabled={isProcessingPayment}
-                        onClick={handlePlaceOrder}
-                        style={{ marginTop: "8px" }}
-                      >
-                        {isProcessingPayment ? (
-                          <span
-                            className="checkout-btn-label"
-                            style={{ margin: "0 auto" }}
-                          >
-                            <span className="cta-btn__spinner" />
-                            Processing Payment...
-                          </span>
-                        ) : (
-                          <>
-                            <span className="checkout-btn-label">
-                              <span>Pay & Place Order</span>
+                            <span
+                              style={{
+                                fontSize: "0.8rem",
+                                color: "#6c5ce7",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Change
                             </span>
-                            <span className="checkout-btn-label">
-                              <span>₹{grandTotal}</span>
-                              <span className="checkout-btn-arrow">→</span>
+                          </div>
+                        </div>
+
+                        <div className="checkout-section">
+                          <span className="checkout-section-title">
+                            Order Items ({cartItems.length})
+                          </span>
+                          <div className="checkout-order-items">
+                            {cartItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="checkout-order-item-row"
+                              >
+                                <span className="checkout-order-item-name">
+                                  {item.quantity}x {item.name}
+                                </span>
+                                <span className="checkout-order-item-price">
+                                  ₹{item.price * item.quantity}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="checkout-section">
+                          <span className="checkout-section-title">
+                            Secure Prava payment
+                          </span>
+                          <p className="checkout-address-text">
+                            Your card details stay inside Prava&apos;s
+                            PCI-compliant secure flow. Merchant sessions are
+                            created from the MCP source of each cart item.
+                          </p>
+                        </div>
+
+                        <div
+                          className="cart-summary-rows"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            padding: "12px",
+                            borderRadius: "10px",
+                          }}
+                        >
+                          <div className="cart-summary-row">
+                            <span>Subtotal</span>
+                            <span>₹{cartSubtotal}</span>
+                          </div>
+                          <div className="cart-summary-row">
+                            <span>Delivery Fee</span>
+                            <span>
+                              {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
                             </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                          </div>
+                          <div className="cart-summary-row">
+                            <span>Taxes & Platform</span>
+                            <span>₹{taxesAndFees}</span>
+                          </div>
+                          <div className="cart-summary-row cart-summary-row--total">
+                            <span>Total Amount Payable</span>
+                            <span style={{ color: "#34d399" }}>
+                              ₹{grandTotal}
+                            </span>
+                          </div>
+                        </div>
+
+                        <SpecularButton
+                          size="md"
+                          className="cart-checkout-btn"
+                          disabled={isProcessingPayment}
+                          onClick={handlePlaceOrder}
+                          style={{ marginTop: "8px" }}
+                        >
+                          {isProcessingPayment ? (
+                            <span
+                              className="checkout-btn-label"
+                              style={{ margin: "0 auto" }}
+                            >
+                              <span className="cta-btn__spinner" />
+                              Processing Payment...
+                            </span>
+                          ) : (
+                            <>
+                              <span className="checkout-btn-label">
+                                <span>Proceed to pay</span>
+                              </span>
+                              <span className="checkout-btn-label">
+                                <span>₹{grandTotal}</span>
+                                <span className="checkout-btn-arrow">→</span>
+                              </span>
+                            </>
+                          )}
+                        </SpecularButton>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </main>
+              )}
+            </>
+          )}
+        </main>
+      ) : isProductsPage ? (
+        <TinderRecommendationPage
+          plannerResults={plannerResults}
+          cartItems={cartItems}
+          onAddToCart={(item: any, quantity: number) =>
+            handleAddToCart(
+              item.id,
+              item.name,
+              item.price,
+              quantity,
+              item.source,
+              item.url,
+              {
+                mcp_server: item.mcpServer,
+                merchant_url: item.url,
+                image: item.image,
+                emoji: item.emoji,
+              },
+            )
+          }
+          onRemoveFromCart={handleRemoveItem}
+          onDone={() => navigate("/shop/cart")}
+          onBack={() => {
+            setPlannerResults(null);
+            writeStoredValue(PLANNER_STORAGE_KEY, null);
+            setQuery("");
+            navigate("/shop");
+          }}
+        />
+      ) : (
+        <CartPage
+          cartItems={cartItems}
+          subtotal={cartSubtotal}
+          deliveryFee={deliveryFee}
+          taxesAndFees={taxesAndFees}
+          grandTotal={grandTotal}
+          onUpdateQty={handleUpdateQty}
+          onRemoveItem={handleRemoveItem}
+          onClearCart={handleClearCart}
+          onCheckout={handlePlaceOrder}
+          onContinueShopping={() => navigate("/shop/products")}
+          isProcessingPayment={isProcessingPayment}
+        />
+      )}
+
+      {isCartPage && isCheckoutOpen && (
+        <PravaCheckoutOverlay
+          sessions={pravaSessions}
+          activeSessionIndex={activePravaSessionIndex}
+          hasPravaCard={hasPravaCard}
+          status={pravaPaymentStatus}
+          orderSuccess={orderSuccess}
+          paymentFailure={paymentFailure}
+          onClose={closeCheckout}
+          onCardSuccess={() => {
+            window.localStorage.setItem("prava-card-enrolled", "true");
+            setHasPravaCard(true);
+            setPravaPaymentStatus("Payment authorization received. Finalizing...");
+          }}
+          onPaymentError={(message) => {
+            setIsProcessingPayment(false);
+            setPaymentFailure(message);
+            setPravaPaymentStatus(message);
+          }}
+        />
+      )}
     </div>
   );
 }
