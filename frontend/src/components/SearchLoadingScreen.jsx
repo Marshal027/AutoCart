@@ -45,7 +45,7 @@ export default function SearchLoadingScreen({
       <div className="search-loading-panel">
         <div className="search-loading-kicker">
           <span className="search-loading-dot" />
-          Trigr intelligence layer
+          AutoCart intelligence layer
         </div>
         <SplitText
           key={finalizing ? "finalizing" : "searching"}

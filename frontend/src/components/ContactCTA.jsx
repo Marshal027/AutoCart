@@ -33,7 +33,7 @@ export default function ContactCTA() {
         size="lg"
         className="contact-button"
         onClick={() => navigate("/shop")}
-        aria-label="Get started with Trigr shopping"
+        aria-label="Get started with AutoCart shopping"
       >
         <div className="contact-text-small">
           <p className="ss">Start automating your purchases today.</p>

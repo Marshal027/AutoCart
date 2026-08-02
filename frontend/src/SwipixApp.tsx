@@ -14,9 +14,7 @@ import {
   Shirt,
 } from "lucide-react";
 import { TinderSwipe } from "./components/TinderSwipe";
-import { WatchlistPanel } from "./components/WatchlistPanel";
-import { LiveDealsPanel } from "./components/LiveDealsPanel";
-import RecommendationReviewPage from "./components/RecommendationReviewPage.jsx";
+import TinderRecommendationPage from "./components/TinderRecommendationPage.jsx";
 import CartPage from "./components/CartPage.jsx";
 import SearchLoadingScreen from "./components/SearchLoadingScreen.jsx";
 import { AnimateNumber } from "motion-plus/react";
@@ -30,6 +28,8 @@ import {
   type PravaSessionGroup,
 } from "./prava/api";
 import PravaPaymentFrame from "./prava/PravaPaymentFrame";
+import PravaCheckoutOverlay from "./components/PravaCheckoutOverlay.jsx";
+import ShopHeaderLinks from "./components/ShopHeaderLinks.jsx";
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -219,9 +219,6 @@ function App({ page = "home" }: { page?: ShopPage }) {
   );
   const [plannerResults, setPlannerResults] = useState<any>(() =>
     readStoredValue<any>(PLANNER_STORAGE_KEY, null),
-  );
-  const [activeTab, setActiveTab] = useState<"watchlist" | "deals">(
-    "watchlist",
   );
   useEffect(() => {
     if (questions.length > 0) {
@@ -756,6 +753,18 @@ function App({ page = "home" }: { page?: ShopPage }) {
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
+    let savedBudget = 0;
+    try {
+      savedBudget = Number(JSON.parse(localStorage.getItem("autocart-prava-settings") || "{}").budget || 0);
+    } catch {
+      savedBudget = 0;
+    }
+    if (savedBudget > 0 && grandTotal > savedBudget) {
+      setPaymentFailure(`This order is ₹${grandTotal}, above your ₹${savedBudget} AutoCart budget limit.`);
+      setIsProcessingPayment(false);
+      setIsCheckoutOpen(true);
+      return;
+    }
     setIsProcessingPayment(true);
     setOrderSuccess(false);
     setPaymentFailure(null);
@@ -1051,11 +1060,12 @@ function App({ page = "home" }: { page?: ShopPage }) {
           className="desktop-cart-slot items-center gap-4 mr-4"
           style={{ marginLeft: "auto" }}
         >
+          <ShopHeaderLinks showCart={false} />
           <motion.button
             type="button"
             className="cart-badge cart-nav-button"
-            onClick={() => setIsCartOpenMobile(true)}
-            aria-label={`Open cart sidebar with ${totalCartCount} items`}
+            onClick={() => navigate("/shop/cart")}
+            aria-label={`Open cart page with ${totalCartCount} items`}
             whileHover={{ y: -2, scale: 1.025 }}
             whileTap={{ scale: 0.96 }}
             initial={false}
@@ -1074,7 +1084,6 @@ function App({ page = "home" }: { page?: ShopPage }) {
               <AnimateNumber>{totalCartCount}</AnimateNumber>
             </motion.span>
           </motion.button>
-          {isCartPage && <span className="cart-nav-current">Full cart</span>}
         </div>
       </Nav>
 
@@ -1150,7 +1159,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                     id="search-input"
                     className="voice-input"
                     type="text"
-                    placeholder="Ask Trigr to find something..."
+                    placeholder="Ask AutoCart to find something..."
                     value={query}
                     style={{ width: "100%" }}
                     onChange={(e) => {
@@ -1204,7 +1213,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
               <SpecularButton
                 size="sm"
                 className="mobile-cart-toggle-btn"
-                onClick={() => setIsCartOpenMobile(!isCartOpenMobile)}
+                onClick={() => navigate("/shop/cart")}
               >
                 🛒 Cart (<AnimateNumber>{totalCartCount}</AnimateNumber>)
               </SpecularButton>
@@ -1265,36 +1274,6 @@ function App({ page = "home" }: { page?: ShopPage }) {
               )}
             </div>
           </div>
-
-          {/* Tab Switcher */}
-          <div className="mb-8 border-b border-border-col">
-            <div className="flex w-full items-center justify-start gap-4">
-              <button
-                className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === "watchlist" ? "text-accent border-b-2 border-accent" : "text-text/50 hover:text-text"}`}
-                onClick={() => setActiveTab("watchlist")}
-              >
-                Watchlist
-              </button>
-              <button
-                className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === "deals" ? "text-accent border-b-2 border-accent" : "text-text/50 hover:text-text"}`}
-                onClick={() => setActiveTab("deals")}
-              >
-                Live Deals
-              </button>
-            </div>
-          </div>
-
-          {activeTab === "watchlist" && (
-            <div className="mt-8">
-              <WatchlistPanel onAddToCart={handleAddToCart} />
-            </div>
-          )}
-
-          {activeTab === "deals" && (
-            <div className="mt-8">
-              <LiveDealsPanel query={query || undefined} />
-            </div>
-          )}
 
           {(questions.length > 0 || finalResult || isCheckoutOpen) && (
             <>
@@ -2104,7 +2083,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
           )}
         </main>
       ) : isProductsPage ? (
-        <RecommendationReviewPage
+        <TinderRecommendationPage
           plannerResults={plannerResults}
           cartItems={cartItems}
           onAddToCart={(item: any, quantity: number) =>
@@ -2145,6 +2124,28 @@ function App({ page = "home" }: { page?: ShopPage }) {
           onCheckout={handlePlaceOrder}
           onContinueShopping={() => navigate("/shop/products")}
           isProcessingPayment={isProcessingPayment}
+        />
+      )}
+
+      {isCartPage && isCheckoutOpen && (
+        <PravaCheckoutOverlay
+          sessions={pravaSessions}
+          activeSessionIndex={activePravaSessionIndex}
+          hasPravaCard={hasPravaCard}
+          status={pravaPaymentStatus}
+          orderSuccess={orderSuccess}
+          paymentFailure={paymentFailure}
+          onClose={closeCheckout}
+          onCardSuccess={() => {
+            window.localStorage.setItem("prava-card-enrolled", "true");
+            setHasPravaCard(true);
+            setPravaPaymentStatus("Payment authorization received. Finalizing...");
+          }}
+          onPaymentError={(message) => {
+            setIsProcessingPayment(false);
+            setPaymentFailure(message);
+            setPravaPaymentStatus(message);
+          }}
         />
       )}
     </div>

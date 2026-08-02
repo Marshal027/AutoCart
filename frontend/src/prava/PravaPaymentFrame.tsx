@@ -17,6 +17,7 @@ export default function PravaPaymentFrame({ session, onReady, onSuccess, onError
   const hasStarted = useRef(false);
   const callbacksRef = useRef({ onReady, onSuccess, onError });
   const [status, setStatus] = useState("Loading secure Prava payment...");
+  const [sdkError, setSdkError] = useState<string | null>(null);
 
   callbacksRef.current = { onReady, onSuccess, onError };
 
@@ -27,12 +28,20 @@ export default function PravaPaymentFrame({ session, onReady, onSuccess, onError
     if (!PUBLISHABLE_KEY) {
       const message = "VITE_PRAVA_PUBLISHABLE_KEY is missing from the frontend environment.";
       setStatus(message);
-      callbacksRef.current.onError?.(message);
+      setSdkError(message);
       hasStarted.current = false;
       return undefined;
     }
 
     let cancelled = false;
+    const observer = new MutationObserver(() => {
+      const iframe = containerRef.current?.querySelector("iframe");
+      if (iframe) {
+        iframe.setAttribute("scrolling", "no");
+        iframe.style.overflow = "hidden";
+      }
+    });
+    observer.observe(containerRef.current, { childList: true, subtree: true });
     const sdk = new PravaSDK({ publishableKey: PUBLISHABLE_KEY });
     sdkRef.current = sdk;
 
@@ -54,17 +63,18 @@ export default function PravaPaymentFrame({ session, onReady, onSuccess, onError
         if (cancelled) return;
         const message = error.message || "Prava secure verification failed.";
         setStatus(message);
-        callbacksRef.current.onError?.(message);
+        setSdkError(message);
       },
     }).catch((error: unknown) => {
       if (cancelled) return;
       const message = error instanceof Error ? error.message : "Prava secure verification failed.";
       setStatus(message);
-      callbacksRef.current.onError?.(message);
+      setSdkError(message);
     });
 
     return () => {
       cancelled = true;
+      observer.disconnect();
       sdkRef.current?.destroy();
       sdkRef.current = null;
       hasStarted.current = false;
@@ -72,11 +82,20 @@ export default function PravaPaymentFrame({ session, onReady, onSuccess, onError
   }, [session.session_id, session.session_token, session.iframe_url]);
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 10 }}>{status}</div>
+    <div className="prava-payment-frame">
+      <div className="prava-payment-frame-status">{status}</div>
+      {sdkError && session.iframe_url && (
+        <button
+          type="button"
+          onClick={() => window.open(session.iframe_url, "_blank", "noopener,noreferrer")}
+          style={{ marginBottom: 12, border: 0, borderRadius: 10, padding: "10px 14px", background: "#17202b", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+        >
+          Open secure Prava payment
+        </button>
+      )}
       <div
         ref={containerRef}
-        style={{ minHeight: 430, width: "100%", overflow: "hidden", borderRadius: 12, background: "#fff" }}
+        className="prava-payment-frame-container"
       />
     </div>
   );

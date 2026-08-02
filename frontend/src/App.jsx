@@ -4,7 +4,9 @@ import Home from "./Home.jsx";
 import SwipixApp from "./SwipixApp.tsx";
 import VisionPage from "./VisionPage.jsx";
 import LiquidEther from "./components/LiquidEther.jsx";
-import PravaSandbox from "./prava/App.tsx";
+import PravaSettingsPage from "./prava/PravaSettingsPage.jsx";
+import EmptyShopPage from "./components/EmptyShopPage.jsx";
+import WatchlistPage from "./components/WatchlistPage.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -96,7 +98,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/vision" element={<VisionPage />} />
-          <Route path="/prava" element={<PravaSandbox />} />
+          <Route path="/prava" element={<PravaSettingsPage />} />
+          <Route path="/shop/watchlist" element={<WatchlistPage />} />
+          <Route path="/shop/deals" element={<EmptyShopPage eyebrow="Live deals" title="Live deals" description="Live merchant offers will appear here." />} />
           <Route
             path="/shop/products"
             element={<SwipixApp page="products" />}

@@ -324,7 +324,7 @@ export default function RecommendationReviewPage({
             <h2>{activeItem.name}</h2>
             <p>
               {activeItem.detail ||
-                "Selected by Trigr from the available merchant results."}
+                "Selected by AutoCart from the available merchant results."}
             </p>
             <div className="recommendation-feature-footer">
               <div>
