@@ -7,4 +7,5 @@ urlpatterns = [
     path("process-list/", views.process_list, name="process-list"),
     path("planner/validate/", planner_views.plan_event_validate, name="plan-event-validate"),
     path("planner/finalize/", planner_views.plan_event_finalize, name="plan-event-finalize"),
+    path("transcribe-audio/", views.transcribe_audio, name="transcribe-audio"),
 ]

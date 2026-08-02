@@ -15,6 +15,15 @@ export default function VisionPage() {
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 }}>
                 <Nav />
             </div>
+            <button
+                type="button"
+                className="vision-back-button"
+                onClick={() => navigate('/shop')}
+                aria-label="Go back to shop"
+            >
+                <span aria-hidden="true">←</span>
+                Go back
+            </button>
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', width: '100%' }}>
                 <VisionSearch onProductFound={handleProductFound} className="fullscreen-mode" />
             </div>

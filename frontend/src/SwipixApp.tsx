@@ -417,75 +417,67 @@ function App({ page = "home" }: { page?: ShopPage }) {
 
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  const toggleListen = () => {
+  const transcribeRecording = async (recording: Blob) => {
+    const formData = new FormData();
+    formData.append("audio", recording, "autocart-recording.webm");
+
+    try {
+      const response = await fetch(`${API_BASE}/transcribe-audio/`, {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Transcription failed.");
+      const text = String(result.text || "").trim();
+      if (!text) throw new Error("No speech was detected.");
+      setTranscript(text);
+      setQuery(text);
+      await handleValidate(text, null);
+    } catch (error) {
+      console.error(error);
+      setBannerAlert({
+        type: "error",
+        message: error instanceof Error ? error.message : "Could not transcribe the recording.",
+      });
+    }
+  };
+
+  const toggleListen = async () => {
     if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
+      mediaRecorderRef.current?.stop();
     } else {
-      startListening();
-    }
-  };
-
-  const startListening = () => {
-    if (
-      !("webkitSpeechRecognition" in window) &&
-      !("SpeechRecognition" in window)
-    ) {
-      window.alert("Your browser doesn't support speech recognition.");
-      return;
-    }
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => setIsListening(true);
-
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      let final = "";
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaStreamRef.current = stream;
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+        recorder.onstop = () => {
+          const recording = new Blob(audioChunksRef.current, {
+            type: recorder.mimeType || "audio/webm",
+          });
+          mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+          mediaRecorderRef.current = null;
+          setIsListening(false);
+          if (recording.size > 0) void transcribeRecording(recording);
+        };
+        recorder.start();
+        setTranscript("Recording...");
+        setIsListening(true);
+      } catch (error) {
+        console.error(error);
+        setBannerAlert({ type: "error", message: "Microphone access was denied or is unavailable." });
       }
-      setTranscript(final || interim);
-    };
-
-    recognition.onerror = (e: any) => {
-      console.error(e);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      // Wait to access the latest transcript state (closure issue)
-      // A safer approach: since transcript is a state, we use effect or rely on final result.
-      // But for simplicity, we just use the event.results array above in onresult if we want it synchronously.
-    };
-
-    recognition.start();
-  };
-
-  // We should watch for isListening to false and submit if transcript exists
-  useEffect(() => {
-    if (!isListening && transcript) {
-      setQuery(transcript);
-      handleValidate(transcript, null);
-      setTranscript(""); // Clear for next time
     }
-  }, [isListening, transcript]);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1334,7 +1326,7 @@ function App({ page = "home" }: { page?: ShopPage }) {
                               q.options.map((opt) => (
                                 <button
                                   key={opt}
-                                  className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? "bg-[#5227ff] text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                                  className={`cursor-target p-4 rounded-xl text-left transition-all ${selectedAnswers[qId] === opt ? "bg-[#8b5e49] text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
                                   onClick={() => handleOptionSelect(qId, opt)}
                                 >
                                   {opt}

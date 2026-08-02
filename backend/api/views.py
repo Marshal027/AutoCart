@@ -1,6 +1,7 @@
 import json
 import logging
 import requests
+from serpapi import GoogleSearch
 
 from django.conf import settings
 from openai import OpenAI
@@ -158,7 +159,28 @@ def run_ai_pipeline(system_prompt: str, user_prompt: str) -> dict:
     return json.loads(content)
 
 
-def _ai_generate_products(query: str, answers: list, category: str, count: int = 2) -> list:
+@api_view(["POST"])
+def transcribe_audio(request):
+    audio = request.FILES.get("audio")
+    if not audio:
+        return Response({"error": "An audio recording is required."}, status=400)
+    if not _openai_client:
+        return Response({"error": "OPENAI_API_KEY is not configured."}, status=503)
+
+    try:
+        result = _openai_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(audio.name or "recording.webm", audio.file, audio.content_type or "audio/webm"),
+            response_format="text",
+        )
+        text = result if isinstance(result, str) else result.text
+        return Response({"text": (text or "").strip()})
+    except Exception as exc:
+        logger.exception("Audio transcription failed: %s", exc)
+        return Response({"error": "Audio transcription failed."}, status=502)
+
+
+def _ai_generate_products(query: str, answers: list, category: str, count: int = 5) -> list:
     """Use AI to generate realistic Indian product data when live MCP returns nothing."""
     answers_str = "; ".join([f"{a.get('question','')}: {a.get('answer','')}" for a in answers if a.get('answer') and a.get('answer') != 'Skipped (No preference)']) or "No specific preferences"
     
@@ -209,14 +231,6 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
             if isinstance(i, dict):
                 valid_items.append(i)
                 
-        import urllib.parse
-        for item in valid_items:
-            if not item.get("image_url") and not item.get("image"):
-                name = str(item.get("name") or item.get("title") or "product")
-                img_prompt = urllib.parse.quote(f"{name} {category} high quality photography")
-                item["image_url"] = f"https://image.pollinations.ai/prompt/{img_prompt}?width=400&height=500&nologo=true"
-                item["image"] = item["image_url"] # Set both to be safe
-                
         return valid_items
 
     if not _openai_client:
@@ -240,6 +254,40 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
     except Exception as e:
         logger.error("OpenAI product generation failed: %s", e)
         return []
+
+
+def _resolve_product_images(products: list, query: str, category: str) -> list:
+    """Keep MCP images first, then use one SerpAPI image, then let the UI use emoji."""
+    api_key = getattr(settings, "SERPAPI_API_KEY", "")
+
+    for product in products:
+        if not isinstance(product, dict):
+            continue
+        if not product.get("image_url") and not product.get("image"):
+            featured_image = product.get("featured_image") or {}
+            images = product.get("images") or []
+            mcp_image = featured_image.get("url") if isinstance(featured_image, dict) else ""
+            if not mcp_image and images and isinstance(images[0], dict):
+                mcp_image = images[0].get("src") or images[0].get("url")
+            if mcp_image:
+                product["image_url"] = mcp_image
+        if product.get("image_url") or product.get("image") or not api_key:
+            continue
+        name = str(product.get("name") or product.get("title") or query).strip()
+        try:
+            result = GoogleSearch({
+                "engine": "google_images",
+                "q": f"{name} {category} product",
+                "api_key": api_key,
+                "ijn": "0",
+            }).get_dict()
+            image_results = result.get("images_results") or []
+            image_url = image_results[0].get("original") or image_results[0].get("thumbnail") if image_results else ""
+            if image_url:
+                product["image_url"] = image_url
+        except Exception as exc:
+            logger.warning("SerpAPI image lookup failed for %s: %s", name, exc)
+    return products
 
 
 
@@ -268,7 +316,8 @@ def fetch_swiggy_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("Swiggy MCP returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "groceries", 2)
+        live_products = _ai_generate_products(query, answers, "groceries", 5)
+    live_products = _resolve_product_images(live_products, query, "groceries")
 
     return {
         "mcp_server": "mcp.swiggy.com/im",
@@ -303,7 +352,8 @@ def fetch_swiggy_food_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("Swiggy Food MCP returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "food", 2)
+        live_products = _ai_generate_products(query, answers, "food", 5)
+    live_products = _resolve_product_images(live_products, query, "food")
 
     return {
         "mcp_server": "mcp.swiggy.com/food",
@@ -338,7 +388,8 @@ def fetch_swiggy_dineout_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("Swiggy Dineout MCP returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "reservation", 2)
+        live_products = _ai_generate_products(query, answers, "reservation", 5)
+    live_products = _resolve_product_images(live_products, query, "reservation")
 
     return {
         "mcp_server": "mcp.swiggy.com/dineout",
@@ -393,7 +444,8 @@ def fetch_beauty_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("All beauty MCPs returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "beauty", 2)
+        live_products = _ai_generate_products(query, answers, "beauty", 5)
+    live_products = _resolve_product_images(live_products, query, "beauty")
 
     return {
         "mcp_server": "Shopify Beauty Network",
@@ -449,7 +501,8 @@ def fetch_apparel_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("All apparel MCPs returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "apparel", 2)
+        live_products = _ai_generate_products(query, answers, "apparel", 5)
+    live_products = _resolve_product_images(live_products, query, "apparel")
 
     return {
         "mcp_server": "Shopify Apparel Network",
@@ -488,7 +541,8 @@ def fetch_travel_mcp_products(query: str, answers: list) -> dict:
 
     if not live_products:
         logger.info("Travel MCPs returned no products, generating AI products for: %s", query)
-        live_products = _ai_generate_products(query, answers, "travel", 2)
+        live_products = _ai_generate_products(query, answers, "travel", 5)
+    live_products = _resolve_product_images(live_products, query, "travel")
 
     return {
         "mcp_server": "Global Travel Network",

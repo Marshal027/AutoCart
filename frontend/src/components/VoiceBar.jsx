@@ -11,7 +11,9 @@ export default function VoiceBar({ compact = false }) {
   const [transcript, setTranscript] = useState('');
   
   const barRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     if (!compact) {
@@ -33,58 +35,60 @@ export default function VoiceBar({ compact = false }) {
     navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
   };
 
-  const toggleListen = () => {
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
-    } else {
-      startListening();
-    }
+  const transcribeRecording = async (recording) => {
+    const formData = new FormData();
+    formData.append('audio', recording, 'autocart-recording.webm');
+    const response = await fetch('http://127.0.0.1:8000/api/transcribe-audio/', {
+      method: 'POST',
+      body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Transcription failed.');
+    const text = String(result.text || '').trim();
+    if (!text) throw new Error('No speech was detected.');
+    setTranscript(text);
+    setQuery(text);
+    handleSearch(text);
   };
 
-  const startListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Your browser doesn't support speech recognition.");
-      return;
+  const toggleListen = async () => {
+    if (isListening) {
+      mediaRecorderRef.current?.stop();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaStreamRef.current = stream;
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+        recorder.onstop = async () => {
+          const recording = new Blob(audioChunksRef.current, {
+            type: recorder.mimeType || 'audio/webm',
+          });
+          mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+          mediaRecorderRef.current = null;
+          setIsListening(false);
+          if (recording.size > 0) {
+            try {
+              await transcribeRecording(recording);
+            } catch (error) {
+              console.error(error);
+              alert(error instanceof Error ? error.message : 'Could not transcribe the recording.');
+            }
+          }
+        };
+        recorder.start();
+        setTranscript('Recording...');
+        setIsListening(true);
+      } catch (error) {
+        console.error(error);
+        alert('Microphone access was denied or is unavailable.');
+      }
     }
-    
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    
-    recognition.onstart = () => setIsListening(true);
-    
-    recognition.onresult = (event) => {
-      let interim = '';
-      let final = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      setTranscript(final || interim);
-    };
-    
-    recognition.onerror = (e) => {
-      console.error(e);
-      setIsListening(false);
-    };
-    
-    recognition.onend = () => {
-      setIsListening(false);
-      if (transcript) {
-        handleSearch(transcript);
-      }
-    };
-    
-    recognition.start();
   };
 
   const handleSubmit = (e) => {
