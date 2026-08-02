@@ -1,0 +1,186 @@
+.prava-settings-page {
+  width: min(980px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 128px 0 72px;
+  color: #24211f;
+}
+
+.prava-settings-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.prava-settings-heading h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2.4rem, 7vw, 5rem);
+  line-height: .95;
+}
+
+.prava-settings-heading p {
+  max-width: 600px;
+  margin-top: 14px;
+  color: #667085;
+}
+
+.prava-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 640px);
+  gap: 18px;
+}
+
+.prava-settings-card {
+  padding: 26px;
+  border: 1px solid #eadfd5;
+  border-radius: 22px;
+  background: rgba(255, 253, 249, .9);
+  box-shadow: 0 20px 50px rgba(81, 62, 46, .1);
+}
+
+.prava-settings-card h2 {
+  margin: 8px 0 22px;
+  font-size: 1.7rem;
+}
+
+.prava-settings-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 14px;
+  color: #475467;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.prava-settings-card input {
+  width: 100%;
+  border: 1px solid #d9d1c7;
+  border-radius: 10px;
+  padding: 12px 13px;
+  background: #fff;
+  color: #24211f;
+  font: inherit;
+  font-size: .95rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.prava-settings-card input:focus {
+  border-color: #b96150;
+  outline: 3px solid rgba(185, 97, 80, .15);
+}
+
+.prava-settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.prava-settings-help {
+  margin-top: 16px;
+  color: #667085;
+  font-size: .86rem;
+  line-height: 1.5;
+}
+
+.prava-card-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 22px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f5f9fd;
+  color: #245b87;
+  font-size: .85rem;
+  font-weight: 800;
+}
+
+.prava-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #98a2b3;
+}
+
+.prava-status-dot--active {
+  background: #24966b;
+  box-shadow: 0 0 0 4px #e6f6ed;
+}
+
+.prava-link-button {
+  margin-top: 18px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 0 0 2px;
+  background: transparent;
+  color: #a04438;
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.prava-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.prava-settings-back,
+.prava-settings-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: "formula-narrow", sans-serif;
+  font-weight: 800;
+  transition: transform .2s ease, filter .2s ease;
+}
+
+.prava-settings-back {
+  min-height: 42px;
+  padding: 10px 22px;
+  border-color: #d8c5b8;
+  border-style: solid;
+  border-width: 1px;
+  background: #fffaf4;
+  color: #4c3d36;
+  box-shadow: 0 6px 16px rgba(81, 62, 46, .1);
+}
+
+.prava-settings-save {
+  min-height: 48px;
+  padding: 14px 30px;
+  border: 0;
+  background: #b96150;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(159, 79, 64, .22);
+}
+
+.prava-settings-back:hover,
+.prava-settings-save:hover {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+}
+
+.prava-settings-actions [role="status"] {
+  color: #176b4b;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .prava-settings-heading,
+  .prava-settings-grid,
+  .prava-settings-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
