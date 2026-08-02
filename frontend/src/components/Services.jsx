@@ -1,11 +1,9 @@
 import React, { useLayoutEffect, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import ScrollStack, { ScrollStackItem } from "./ScrollStack.jsx";
 
 export default function Services() {
   const containerRef = useRef(null);
+  const indicatorRef = useRef(null);
 
   const services = [
     {
@@ -31,91 +29,97 @@ export default function Services() {
   ];
 
   useLayoutEffect(() => {
-    let scrollTriggerInstances = [];
+    let frameId = null;
 
-    const initAnimations = () => {
-      // Kill existing instances
-      scrollTriggerInstances.forEach((instance) => {
-        if (instance) instance.kill();
-      });
-      scrollTriggerInstances = [];
+    const updateIndicator = () => {
+      frameId = null;
+      if (!containerRef.current || !indicatorRef.current) return;
 
-      if (window.innerWidth <= 1000) return;
+      const section = containerRef.current;
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+      const sectionBottom = sectionTop + section.offsetHeight;
+      const viewportCenter = window.scrollY + window.innerHeight / 2;
+      const sectionProgress = Math.max(
+        0,
+        Math.min(
+          1,
+          (viewportCenter - sectionTop) / (sectionBottom - sectionTop),
+        ),
+      );
+      const isActive =
+        viewportCenter >= sectionTop && viewportCenter <= sectionBottom;
 
-      const serviceCards = gsap.utils.toArray(".service-card");
-      if (!serviceCards.length) return;
+      indicatorRef.current.style.opacity = isActive ? "1" : "0";
+      indicatorRef.current.style.visibility = isActive ? "visible" : "hidden";
 
-      // Main tracker
-      const mainTrigger = ScrollTrigger.create({
-        trigger: serviceCards[0],
-        start: "top 50%",
-        endTrigger: serviceCards[serviceCards.length - 1],
-        end: "top 150%",
-      });
-      scrollTriggerInstances.push(mainTrigger);
-
-      serviceCards.forEach((service, index) => {
-        const isLastServiceCard = index === serviceCards.length - 1;
-        const serviceCardInner = service.querySelector(".service-card-inner");
-
-        if (!isLastServiceCard) {
-          // Pin card at 45% of viewport
-          const pinTrigger = ScrollTrigger.create({
-            trigger: service,
-            start: "top 45%",
-            endTrigger: ".contact-cta",
-            end: "top 90%",
-            pin: true,
-            pinSpacing: false,
-          });
-          scrollTriggerInstances.push(pinTrigger);
-
-          // Move inner card upward as you scroll (creates the stacking/overlap)
-          const scrollAnimation = gsap.to(serviceCardInner, {
-            y: `-${(serviceCards.length - index) * 14}vh`,
-            ease: "none",
-            scrollTrigger: {
-              trigger: service,
-              start: "top 45%",
-              endTrigger: ".contact-cta",
-              end: "top 90%",
-              scrub: true,
-            },
-          });
-          scrollTriggerInstances.push(scrollAnimation.scrollTrigger);
-        }
+      const indicators = indicatorRef.current.querySelectorAll(".indicator");
+      const progressPerIndicator = 1 / indicators.length;
+      indicators.forEach((indicator, index) => {
+        indicator.style.opacity =
+          sectionProgress > index * progressPerIndicator ? "1" : "0.2";
       });
     };
 
-    initAnimations();
-
-    const handleResize = () => {
-      initAnimations();
+    const scheduleIndicatorUpdate = () => {
+      if (frameId === null) frameId = requestAnimationFrame(updateIndicator);
     };
-    window.addEventListener("resize", handleResize);
+
+    window.addEventListener("scroll", scheduleIndicatorUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleIndicatorUpdate);
+    scheduleIndicatorUpdate();
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      scrollTriggerInstances.forEach((instance) => {
-        if (instance) instance.kill();
-      });
+      window.removeEventListener("scroll", scheduleIndicatorUpdate);
+      window.removeEventListener("resize", scheduleIndicatorUpdate);
+      if (frameId !== null) cancelAnimationFrame(frameId);
     };
   }, []);
 
   return (
     <section className="services" ref={containerRef}>
-      {services.map((service) => (
-        <div className="service-card" id={service.id} key={service.id}>
-          <div className="service-card-inner">
+      <div
+        className="scroll-indicator services-scroll-indicator"
+        ref={indicatorRef}
+        aria-hidden="true"
+      >
+        {services.map((service, serviceIndex) => (
+          <React.Fragment key={service.id}>
+            <p className="mn">0{serviceIndex + 1}</p>
+            {Array.from({ length: 10 }, (_, indicatorIndex) => (
+              <div
+                className="indicator"
+                key={`${service.id}-indicator-${indicatorIndex}`}
+              />
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+      <ScrollStack
+        className="services-scroll-stack"
+        itemDistance={48}
+        itemScale={0.025}
+        itemStackDistance={72}
+        stackPosition="18%"
+        scaleEndPosition="10%"
+        baseScale={0.88}
+        useWindowScroll
+      >
+        {services.map((service, serviceIndex) => (
+          <ScrollStackItem
+            key={service.id}
+            itemClassName={`service-card service-card-inner service-card-${serviceIndex + 1}`}
+          >
             <div className="service-card-content">
               <h1>{service.title}</h1>
             </div>
             <div className="service-card-img">
               <img src={service.image} alt={service.title} />
             </div>
-          </div>
-        </div>
-      ))}
+          </ScrollStackItem>
+        ))}
+      </ScrollStack>
     </section>
   );
 }

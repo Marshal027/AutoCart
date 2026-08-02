@@ -15,20 +15,17 @@ export default function FeaturedWork() {
     "Multi-Agent AI",
     "Real-Time Pricing",
     "Guaranteed Authentic",
-    "Auto Checkout"
+    "Auto Checkout",
   ];
 
   useLayoutEffect(() => {
     let scrollTriggerInstance = null;
 
     const initAnimations = () => {
-      if (window.innerWidth <= 1000) {
-        if (scrollTriggerInstance) {
-          scrollTriggerInstance.kill();
-          scrollTriggerInstance = null;
-        }
-        return;
-      }
+      const isMobile = window.innerWidth <= 1000;
+      const positionScale = isMobile
+        ? Math.min(1, window.innerWidth / 1120)
+        : 1;
 
       if (scrollTriggerInstance) {
         scrollTriggerInstance.kill();
@@ -74,7 +71,8 @@ export default function FeaturedWork() {
         { y: 3000, x: 1950 },
         { y: 500, x: 4500 },
       ];
-      const featuredCardPos = window.innerWidth >= 1600 ? featuredCardPosLarge : featuredCardPosSmall;
+      const featuredCardPos =
+        window.innerWidth >= 1600 ? featuredCardPosLarge : featuredCardPosSmall;
 
       const moveDistance = window.innerWidth * 4;
 
@@ -90,8 +88,8 @@ export default function FeaturedWork() {
           featuredImgCard.appendChild(img);
           const position = featuredCardPos[i - 1];
           gsap.set(featuredImgCard, {
-            x: position.x,
-            y: position.y,
+            x: position.x * positionScale,
+            y: position.y * positionScale,
             z: -1500,
             scale: 0,
           });
@@ -112,11 +110,15 @@ export default function FeaturedWork() {
           }
 
           if (imagesRef.current) {
-            const cards = imagesRef.current.querySelectorAll(".featured-img-card");
+            const cards =
+              imagesRef.current.querySelectorAll(".featured-img-card");
             cards.forEach((card, index) => {
               const staggerOffset = index * 0.075;
               const scaledProgress = (self.progress - staggerOffset) * 2;
-              const individualProgress = Math.max(0, Math.min(1, scaledProgress));
+              const individualProgress = Math.max(
+                0,
+                Math.min(1, scaledProgress),
+              );
               const newZ = -1500 + 3000 * individualProgress;
               const scaleProgress = Math.min(1, individualProgress * 10);
               const scale = Math.max(0, Math.min(1, scaleProgress));
@@ -128,7 +130,8 @@ export default function FeaturedWork() {
           }
 
           if (indicatorRef.current) {
-            const indicators = indicatorRef.current.querySelectorAll(".indicator");
+            const indicators =
+              indicatorRef.current.querySelectorAll(".indicator");
             const totalIndicators = indicators.length;
             const progressPerIndicator = 1 / totalIndicators;
             indicators.forEach((indicator, index) => {
@@ -167,13 +170,19 @@ export default function FeaturedWork() {
           <div className="featured-title-wrapper" key={i}>
             <h1>{feature}</h1>
             <div className="featured-title-img">
-              <img src={`/images/work-items/work-item-${i + 1}.jpg`} alt={feature} />
+              <img
+                src={`/images/work-items/work-item-${i + 1}.jpg`}
+                alt={feature}
+              />
             </div>
           </div>
         ))}
       </div>
       <div className="featured-images" ref={imagesRef}></div>
-      <div className="featured-work-indicator" ref={indicatorRef}></div>
+      <div
+        className="scroll-indicator featured-work-indicator"
+        ref={indicatorRef}
+      ></div>
       <div className="featured-work-footer">
         <p className="mn">Features</p>
         <p className="mn">Capabilities</p>
