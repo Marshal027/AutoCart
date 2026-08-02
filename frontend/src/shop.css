@@ -3322,6 +3322,67 @@
   margin-top: 24px;
 }
 
+.watchlist-reminder {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  border: 1px solid rgba(24, 32, 43, 0.12);
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.watchlist-reminder p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.watchlist-reminder-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.watchlist-reminder-controls label {
+  color: #4c436e;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.watchlist-reminder-controls select,
+.watchlist-reminder-controls button {
+  min-height: 38px;
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  padding: 8px 12px;
+  font: 700 0.8rem "formula-narrow", sans-serif;
+}
+
+.watchlist-reminder-controls select {
+  background: #fff;
+  color: #18202b;
+}
+
+.watchlist-reminder-controls button {
+  background: #5b4fe0;
+  color: #fff;
+  cursor: pointer;
+}
+
+.watchlist-reminder-controls .watchlist-reminder-stop {
+  background: #9a3f3f;
+}
+
+.watchlist-reminder-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.watchlist-reminder-status {
+  color: #23834b !important;
+  font-weight: 700;
+}
+
 .watchlist-page-template .watchlist-section .swiggy-card {
   background: rgba(63, 71, 82, 0.72);
   border-color: rgba(88, 88, 88, 0.14);
