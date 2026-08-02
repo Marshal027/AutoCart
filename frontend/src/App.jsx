@@ -4,6 +4,7 @@ import Home from "./Home.jsx";
 import SwipixApp from "./SwipixApp.tsx";
 import VisionPage from "./VisionPage.jsx";
 import LiquidEther from "./components/LiquidEther.jsx";
+import PravaSandbox from "./prava/App.tsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -76,6 +77,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/vision" element={<VisionPage />} />
+          <Route path="/prava" element={<PravaSandbox />} />
           <Route path="/shop/*" element={<SwipixApp />} />
         </Routes>
       </div>

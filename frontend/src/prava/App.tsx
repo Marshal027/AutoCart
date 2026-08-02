@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPravaSession, type CartItemPayload } from './api';
-import VisionSearch from '@vision';
-import type { ProductIdentification } from '@vision';
+import VisionSearch from '../vision';
+import type { ProductIdentification } from '../vision';
 
 interface Product {
   id: string;
@@ -126,7 +126,6 @@ export default function App() {
         })),
         currency: 'USD',
         amount: subtotal,
-        return_url: window.location.origin,
         userId: getGuestId(),
         userEmail: 'sandbox@example.com',
       });

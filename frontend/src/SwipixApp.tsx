@@ -2,14 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Lenis from "lenis";
 import Nav from "./components/Nav.jsx";
-import { ProductSwipeView, QuestionFlow } from "./components/SwipeScreens";
+import { QuestionFlow } from "./components/SwipeScreens";
 import { ShinyText } from "./components/ReactBits";
 import { Pizza, ShoppingBag, ShoppingCart, Utensils, Sparkles, Shirt } from "lucide-react";
 import { TinderSwipe } from "./components/TinderSwipe";
 import { WatchlistPanel } from "./components/WatchlistPanel";
 import { LiveDealsPanel } from "./components/LiveDealsPanel";
+import CartSwipePopup from "./components/CartSwipePopup.jsx";
 import TargetCursor from "./TargetCursor";
 import Stepper, { Step } from "./Stepper";
+import { createPravaSessions, pollPravaPaymentResult, reportPravaPaymentStatus, type PravaSessionGroup } from "./prava/api";
+import PravaPaymentFrame from "./prava/PravaPaymentFrame";
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -148,6 +151,8 @@ interface CartItem {
   quantity: number;
   source: string;
   url?: string;
+  mcp_server?: string;
+  merchant_url?: string;
 }
 
 function App() {
@@ -166,7 +171,7 @@ function App() {
     null,
   );
   const [plannerResults, setPlannerResults] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"shopping" | "watchlist" | "deals">("shopping");
+  const [activeTab, setActiveTab] = useState<"watchlist" | "deals">("watchlist");
   useEffect(() => {
     if (questions.length > 0) {
       const newAnswers = { ...selectedAnswers };
@@ -246,6 +251,14 @@ function App() {
   const [isProcessingPayment, setIsProcessingPayment] =
     useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
+  const [paymentFailure, setPaymentFailure] = useState<string | null>(null);
+  const [hasPravaCard, setHasPravaCard] = useState<boolean>(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("prava-card-enrolled") === "true",
+  );
+  const [pravaSessions, setPravaSessions] = useState<PravaSessionGroup[]>([]);
+  const [activePravaSessionIndex, setActivePravaSessionIndex] = useState(0);
+  const [pravaPaymentStatus, setPravaPaymentStatus] = useState("Preparing secure payment...");
+  const reportedPravaSessions = useRef(new Set<string>());
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -253,6 +266,65 @@ function App() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const activeSession = pravaSessions[activePravaSessionIndex];
+    if (!activeSession?.session_id) return undefined;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await pollPravaPaymentResult(activeSession.session_id!);
+        if (cancelled) return;
+        if (result.status === "awaiting_result") {
+          const transaction = result.transactions?.find((entry: any) => entry.status === "awaiting_result") || result.transactions?.[0];
+          const lineItem = transaction?.line_items?.[0];
+          const transactionReference = lineItem?.txn_ref_id;
+          const isSandboxSession = activeSession.iframe_url?.includes("sandbox.collect.prava.space");
+          if (transactionReference && isSandboxSession && !reportedPravaSessions.current.has(activeSession.session_id!)) {
+            reportedPravaSessions.current.add(activeSession.session_id!);
+            await reportPravaPaymentStatus(activeSession.session_id!, {
+              txn_ref_id: transactionReference,
+              txn_status: "APPROVED",
+              authorization_code: "AUTO_APPROVED",
+              response_code: "00",
+            });
+            setPravaPaymentStatus("Payment approved. Finalizing the merchant order...");
+          } else if (transactionReference && !isSandboxSession) {
+            setPravaPaymentStatus("Payment authorization received. Merchant confirmation is required for live checkout.");
+          }
+        } else if (result.status === "completed") {
+          if (activePravaSessionIndex + 1 < pravaSessions.length) {
+            setActivePravaSessionIndex((index) => index + 1);
+            setPravaPaymentStatus("Merchant payment approved. Continue with the next secure session.");
+          } else {
+            setIsProcessingPayment(false);
+            setOrderSuccess(true);
+            setPravaPaymentStatus("All merchant payments completed.");
+            setCartItems([]);
+          }
+        } else if (result.status === "failed") {
+          setIsProcessingPayment(false);
+          setPaymentFailure("A merchant payment was declined. Please try again.");
+          setPravaPaymentStatus("Payment declined.");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Unable to read payment status.";
+          setPaymentFailure(message);
+          setIsProcessingPayment(false);
+          setPravaPaymentStatus(message);
+        }
+      }
+    };
+
+    const interval = window.setInterval(poll, 3000);
+    poll();
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activePravaSessionIndex, pravaSessions]);
 
   const [isListShopping, setIsListShopping] = useState(false);
   const [listFile, setListFile] = useState<File | null>(null);
@@ -492,7 +564,7 @@ function App() {
 
       const data = await res.json();
       if (res.ok && (data.exact_product || data.tracks)) {
-        if (data.exact_product) {
+          if (data.exact_product) {
           setFinalResult(data);
           let prods: any[] = [];
           if (data.swiggy_mcp) prods = data.swiggy_mcp.products;
@@ -535,6 +607,7 @@ function App() {
     count: number = 1,
     source: string = "Swiggy",
     url?: string,
+    paymentMetadata?: Pick<CartItem, "mcp_server" | "merchant_url">,
   ) => {
     setCartItems((prev) => {
       const existingIndex = prev.findIndex(
@@ -548,7 +621,7 @@ function App() {
         };
         return updated;
       }
-      return [...prev, { id, name, price, quantity: count, source, url }];
+      return [...prev, { id, name, price, quantity: count, source, url, ...paymentMetadata }];
     });
     showToast(`Added ${count}x "${name}" to Cart! 🛒`);
   };
@@ -590,13 +663,51 @@ function App() {
   const taxesAndFees = cartSubtotal > 0 ? 15 : 0;
   const grandTotal = cartSubtotal + deliveryFee + taxesAndFees;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) return;
     setIsProcessingPayment(true);
-    setTimeout(() => {
+    setOrderSuccess(false);
+    setPaymentFailure(null);
+    setIsCheckoutOpen(false);
+    setPravaPaymentStatus("Creating secure merchant sessions...");
+    try {
+      const guestId = window.localStorage.getItem("prava-sandbox-user-id") || `guest_${Math.random().toString(36).slice(2, 10)}`;
+      window.localStorage.setItem("prava-sandbox-user-id", guestId);
+      const response = await createPravaSessions({
+        items: cartItems.map(({ id, name, price, quantity, source, mcp_server, merchant_url }) => ({
+          id: String(id),
+          name,
+          price,
+          quantity,
+          source,
+          mcp_server,
+          merchant_url,
+        })),
+        currency: "INR",
+        amount: grandTotal,
+        callback_url: window.location.origin,
+        userId: guestId,
+        userEmail: "guest@example.com",
+      });
+      setPravaSessions(response.sessions);
+      setActivePravaSessionIndex(0);
+      setIsCheckoutOpen(true);
+      setPravaPaymentStatus(`Secure payment ready for ${response.sessions.length} merchant${response.sessions.length === 1 ? "" : "s"}.`);
+    } catch (error) {
       setIsProcessingPayment(false);
-      setOrderSuccess(true);
-      setCartItems([]);
-    }, 1400);
+      setPaymentFailure(error instanceof Error ? error.message : "Checkout failed.");
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const closeCheckout = () => {
+    setIsCheckoutOpen(false);
+    setOrderSuccess(false);
+    setPaymentFailure(null);
+    setPravaSessions([]);
+    setActivePravaSessionIndex(0);
+    setPravaPaymentStatus("Preparing secure payment...");
+    setPaymentFailure(null);
   };
 
   const openProductModal = (prod: SwiggyProduct) => {
@@ -621,15 +732,20 @@ function App() {
     setShowTinderSwipe(false);
     setShowFinalConfirmation(false);
     setSwipeProducts([]);
+    setPravaSessions([]);
+    setActivePravaSessionIndex(0);
+    setPravaPaymentStatus("Preparing secure payment...");
   };
 
   return (
     <div className="swipix-app swipix-app-body app-wrapper app-wrapper--with-sidebar">
-      <TargetCursor
-        hideDefaultCursor={false}
-        cursorColor="#0e23a6"
-        cursorColorOnTarget="#d93d3d"
-      />
+      {questions.length > 0 && (
+        <TargetCursor
+          hideDefaultCursor={false}
+          cursorColor="#0e23a6"
+          cursorColorOnTarget="#d93d3d"
+        />
+      )}
       {/* Ambient glow blobs */}
       <div className="glow glow--1" />
       <div className="glow glow--2" />
@@ -656,8 +772,13 @@ function App() {
           )}
 
           <button
+            type="button"
             className="cart-close-mobile"
-            onClick={() => setIsCartOpenMobile(false)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsCartOpenMobile(false);
+            }}
             aria-label="Close cart drawer"
           >
             ✕
@@ -769,10 +890,10 @@ function App() {
             id="checkout-btn"
             className="cart-checkout-btn"
             disabled={cartItems.length === 0}
-            onClick={() => setIsCheckoutOpen(true)}
+            onClick={handlePlaceOrder}
           >
             <span className="checkout-btn-label">
-              <span>Proceed to Checkout</span>
+              <span>Proceed to pay</span>
             </span>
             <span className="checkout-btn-label">
               <span>₹{grandTotal}</span>
@@ -948,7 +1069,8 @@ function App() {
               query.trim() &&
               questions.length === 0 &&
               !finalResult &&
-              !plannerResults && (
+              !plannerResults &&
+              cartItems.length === 0 && (
                 <button
                   id="continue-btn"
                   className="cta-btn"
@@ -993,15 +1115,31 @@ function App() {
           </div>
         </div>
 
+        {plannerResults?.tracks && (
+          <CartSwipePopup
+            tracks={plannerResults.tracks}
+            onAddToCart={(item) =>
+              handleAddToCart(
+                item.id,
+                item.name,
+                item.price,
+                1,
+                item.source,
+                item.url,
+                { mcp_server: item.mcpServer, merchant_url: item.url },
+              )
+            }
+            onClose={() => {
+              setPlannerResults(null);
+              setQuery("");
+              navigate("/shop");
+            }}
+          />
+        )}
+
         {/* Tab Switcher */}
         <div className="mb-8 border-b border-border-col">
           <div className="flex w-full items-center justify-start gap-4">
-            <button
-              className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === "shopping" ? "text-accent border-b-2 border-accent" : "text-text/50 hover:text-text"}`}
-              onClick={() => setActiveTab("shopping")}
-            >
-              Shopping
-            </button>
             <button
               className={`px-8 py-3 font-['Space_Mono'] font-bold text-sm uppercase tracking-widest transition-all ${activeTab === "watchlist" ? "text-accent border-b-2 border-accent" : "text-text/50 hover:text-text"}`}
               onClick={() => setActiveTab("watchlist")}
@@ -1029,7 +1167,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === "shopping" && (
+            {(questions.length > 0 || finalResult || isCheckoutOpen) && (
           <>
             {/* ── 4 MCQ Clarification Questions Section (Optional) ──────────── */}
             {questions.length > 0 && !finalResult && (
@@ -1099,22 +1237,6 @@ function App() {
                   })}
                 </Stepper>
               </div>
-            )}
-
-            {plannerResults && location.pathname.includes("/shop/products") && (
-              <ProductSwipeView
-                tracks={plannerResults.tracks}
-                goal={query}
-                summary={plannerResults.summary}
-                answers={selectedAnswers}
-                onReset={() => {
-                  setPlannerResults(null);
-                  setQuery("");
-                  setQuestions([]);
-                  setSelectedAnswers({});
-                  navigate("/shop");
-                }}
-              />
             )}
 
             {/* ── Tinder Swipe: Shows directly after AI identifies product ──── */}
@@ -1589,18 +1711,16 @@ function App() {
             {isCheckoutOpen && (
               <div
                 className="modal-backdrop"
-                onClick={() => setIsCheckoutOpen(false)}
+                onClick={closeCheckout}
               >
                 <div
-                  className="modal-content modal-content--full-details checkout-modal-content"
+                  className="modal-content modal-content--full-details checkout-modal-content prava-payment-modal"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
+                    type="button"
                     className="modal-close-btn"
-                    onClick={() => {
-                      setIsCheckoutOpen(false);
-                      setOrderSuccess(false);
-                    }}
+                    onClick={closeCheckout}
                     aria-label="Close checkout"
                   >
                     ✕
@@ -1620,14 +1740,56 @@ function App() {
                         className="cta-btn"
                         style={{ marginTop: "12px" }}
                         onClick={() => {
-                          setIsCheckoutOpen(false);
-                          setOrderSuccess(false);
+                          closeCheckout();
                         }}
                       >
                         Done & Continue Swiping ⚡
                       </button>
                     </div>
-                  ) : (
+                  ) : paymentFailure ? (
+                    <div className="checkout-success-container checkout-failure-container">
+                      <span className="checkout-success-icon">!</span>
+                      <h2 className="checkout-success-title">Payment failed</h2>
+                      <p className="checkout-success-sub">{paymentFailure}</p>
+                      <button className="cta-btn" style={{ marginTop: "12px" }} onClick={closeCheckout}>
+                        Close
+                      </button>
+                    </div>
+                  ) : pravaSessions.length > 0 ? (
+                    <div className="modal-details-container">
+                      <div className="checkout-header">
+                        <h2 className="checkout-title">{hasPravaCard ? "Confirm secure payment" : "Set up secure payment"}</h2>
+                        <span className="cart-header__badge">
+                          {activePravaSessionIndex + 1} / {pravaSessions.length} merchants
+                        </span>
+                      </div>
+                      <p className="checkout-section-title">{pravaPaymentStatus}</p>
+                      <p className="checkout-address-text">
+                        {hasPravaCard
+                          ? "Your saved Prava card is being used for this purchase. Approve the secure request and merchant payments will be coordinated automatically."
+                          : "Add your card once in Prava's secure light form. Your card details never reach Autocart, and future purchases can use the saved card."}
+                      </p>
+                      {pravaSessions[activePravaSessionIndex]?.iframe_url && pravaSessions[activePravaSessionIndex]?.session_token ? (
+                        <PravaPaymentFrame
+                          session={pravaSessions[activePravaSessionIndex]}
+                          onSuccess={() => {
+                            window.localStorage.setItem("prava-card-enrolled", "true");
+                            setHasPravaCard(true);
+                            setPravaPaymentStatus("Payment authorization received. Finalizing...");
+                          }}
+                          onError={(message) => {
+                            setIsProcessingPayment(false);
+                            setPaymentFailure(message);
+                            setPravaPaymentStatus(message);
+                          }}
+                        />
+                      ) : (
+                        <div className="checkout-address-card" style={{ marginTop: "16px" }}>
+                          Secure payment URL was not returned for {pravaSessions[activePravaSessionIndex]?.merchant_name || "this merchant"}.
+                        </div>
+                      )}
+                    </div>
+                  ) : false ? (
                     <div className="modal-details-container">
                       <div className="checkout-header">
                         <h2 className="checkout-title">
@@ -1687,44 +1849,10 @@ function App() {
                       </div>
 
                       <div className="checkout-section">
-                        <span className="checkout-section-title">
-                          Select Payment Method
-                        </span>
-                        <div className="checkout-payment-methods">
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "upi"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("upi")}
-                          >
-                            <span className="payment-method-icon">⚡</span>
-                            <span>UPI / GPay</span>
-                          </div>
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "card"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("card")}
-                          >
-                            <span className="payment-method-icon">💳</span>
-                            <span>Card</span>
-                          </div>
-                          <div
-                            className={`payment-method-card ${
-                              selectedPayment === "cod"
-                                ? "payment-method-card--selected"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedPayment("cod")}
-                          >
-                            <span className="payment-method-icon">💵</span>
-                            <span>Cash</span>
-                          </div>
-                        </div>
+                        <span className="checkout-section-title">Secure Prava payment</span>
+                        <p className="checkout-address-text">
+                          Your card details stay inside Prava&apos;s PCI-compliant secure flow. Merchant sessions are created from the MCP source of each cart item.
+                        </p>
                       </div>
 
                       <div
@@ -1774,7 +1902,7 @@ function App() {
                         ) : (
                           <>
                             <span className="checkout-btn-label">
-                              <span>Pay & Place Order</span>
+                              <span>Proceed to pay</span>
                             </span>
                             <span className="checkout-btn-label">
                               <span>₹{grandTotal}</span>
@@ -1784,7 +1912,7 @@ function App() {
                         )}
                       </button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}

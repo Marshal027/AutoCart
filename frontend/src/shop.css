@@ -1627,6 +1627,49 @@
   width: 90% !important;
 }
 
+.prava-payment-modal {
+  background: #ffffff !important;
+  border-color: #d9dce5 !important;
+  color: #18202b;
+  box-shadow: 0 24px 60px rgba(16, 24, 40, 0.2);
+}
+
+.prava-payment-modal .checkout-header {
+  border-color: #e5e7eb;
+}
+
+.prava-payment-modal .checkout-title,
+.prava-payment-modal .checkout-section-title,
+.prava-payment-modal .checkout-success-title {
+  color: #17202b;
+}
+
+.prava-payment-modal .checkout-address-text,
+.prava-payment-modal .checkout-success-sub {
+  color: #667085;
+}
+
+.prava-payment-modal .cart-summary-rows {
+  background: #f8fafc !important;
+}
+
+.checkout-failure-container .checkout-success-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff1f2;
+  color: #dc3545;
+  font-size: 2rem;
+  font-weight: 800;
+  animation: none;
+}
+
+.checkout-failure-container .checkout-success-title {
+  color: #dc3545;
+}
+
 .checkout-header {
   display: flex;
   align-items: center;

@@ -183,6 +183,7 @@ User Preferences Database: {preferences}
                         "title": item_name,
                         "icon": "✨",
                         "desc": reason,
+                        "mcp_server": mcp_data.get("mcp_server", cat),
                         "items": swiping_items
                     })
 

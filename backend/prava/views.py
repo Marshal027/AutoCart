@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .exceptions import PravaAPIError, PravaError
-from .services import create_session, fetch_payment_result
+from .services import create_session, create_sessions, fetch_payment_result, report_payment_status
 
 
 def _read_json(request):
@@ -43,6 +43,34 @@ def payment_result(request, session_id):
 
     try:
         return _to_json_response(fetch_payment_result(session_id))
+    except PravaAPIError as error:
+        return JsonResponse(error.payload or {'error': str(error)}, status=error.status_code or 502)
+    except (ValueError, PravaError) as error:
+        return JsonResponse({'error': str(error)}, status=500)
+
+
+@csrf_exempt
+def report_status(request, session_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST is allowed.'}, status=405)
+
+    payload = _read_json(request)
+    try:
+        return _to_json_response(report_payment_status(session_id, payload))
+    except PravaAPIError as error:
+        return JsonResponse(error.payload or {'error': str(error)}, status=error.status_code or 502)
+    except (ValueError, PravaError) as error:
+        return JsonResponse({'error': str(error)}, status=500)
+
+
+@csrf_exempt
+def sessions(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST is allowed.'}, status=405)
+
+    payload = _read_json(request)
+    try:
+        return _to_json_response(create_sessions(payload))
     except PravaAPIError as error:
         return JsonResponse(error.payload or {'error': str(error)}, status=error.status_code or 502)
     except (ValueError, PravaError) as error:

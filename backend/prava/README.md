@@ -62,6 +62,18 @@ const data = await response.json();
 console.log("Obtained Checkout URL:", data.iframe_url);
 ```
 
+For the main Autocart checkout, use `POST /api/prava/sessions/`. The backend groups
+cart items by `mcp_server` and creates one Prava session per merchant group. The
+response contains `sessions[]`, each with its own `session_id`, `iframe_url`, merchant,
+and subtotal. Poll each returned session through the existing payment-result route.
+
+The Prava secret remains server-side in `backend/.env`:
+
+```env
+PRAVA_BACKEND_URL=https://sandbox.api.prava.space
+MERCHANT_SECRET_KEY=sk_test_your_key_here
+```
+
 ### Backend (Payment Result)
 - **Where it is received:** You can obtain the final status of a payment by hitting `GET /api/prava/sessions/{session_id}/payment-result/`.
 - **Server-Side Access:** You can also obtain the result directly in python code without HTTP overhead by importing:

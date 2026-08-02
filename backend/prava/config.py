@@ -24,6 +24,8 @@ class PravaSettings:
 
         if not merchant_secret_key:
             raise ValueError('MERCHANT_SECRET_KEY is missing.')
+        if 'sandbox.' in backend_url and not merchant_secret_key.startswith('sk_test_'):
+            raise ValueError('Sandbox Prava requires a real sk_test_* MERCHANT_SECRET_KEY.')
 
         return cls(
             backend_url=backend_url,
