@@ -145,6 +145,6 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY")
 
 # Path to the AI agent skill file
-SKILL_FILE_PATH = BASE_DIR.parent / 'skill.md'
+SKILL_FILE_PATH = BASE_DIR / 'skill.md'
 
 CORS_ALLOW_ALL_ORIGINS = True

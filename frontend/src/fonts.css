@@ -88,7 +88,7 @@
   
   @font-face {
     font-family: "formula-condensed";
-    src: url("/fonts/formula/PPFormula-CondensedLight.ttf") format("truetype");
+    src: url("/fonts/formula/PPFormula-CondensedExtralight.ttf") format("truetype");
     font-weight: 300;
     font-style: normal;
     font-display: swap;
@@ -96,7 +96,7 @@
   
   @font-face {
     font-family: "formula-condensed";
-    src: url("/fonts/formula/PPFormula-CondensedItalic.ttf") format("truetype");
+    src: url("/fonts/formula/PPFormula-CondensedRegularItalic.ttf") format("truetype");
     font-weight: 400;
     font-style: italic;
     font-display: swap;
@@ -128,7 +128,7 @@
   
   @font-face {
     font-family: "formula-extended";
-    src: url("/fonts/formula/PPFormula-ExtendedItalic.ttf") format("truetype");
+    src: url("/fonts/formula/PPFormula-ExtendedLightItalic.ttf") format("truetype");
     font-weight: 400;
     font-style: italic;
     font-display: swap;
@@ -232,7 +232,7 @@
   
   @font-face {
     font-family: "formula-semicondensed";
-    src: url("/fonts/formula/PPFormula-SemiCondensedLight.ttf") format("truetype");
+    src: url("/fonts/formula/PPFormula-SemiCondensedExtralight.ttf") format("truetype");
     font-weight: 300;
     font-style: normal;
     font-display: swap;
@@ -240,7 +240,7 @@
   
   @font-face {
     font-family: "formula-semicondensed";
-    src: url("/fonts/formula/PPFormula-SemiCondensedItalic.ttf")
+    src: url("/fonts/formula/PPFormula-SemiCondensedExtralightItalic.ttf")
       format("truetype");
     font-weight: 400;
     font-style: italic;

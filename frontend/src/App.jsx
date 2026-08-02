@@ -52,9 +52,9 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
         <LiquidEther
-          colors={['#5227FF', '#FF9FFC', '#B497CF']}
+          colors={[ '#5227FF', '#FF9FFC', '#B497CF' ]}
           mouseForce={20}
           cursorSize={100}
           isViscous={false}
@@ -71,12 +71,14 @@ export default function App() {
           autoRampDuration={0.6}
         />
       </div>
-      <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/vision" element={<VisionPage />} />
-        <Route path="/shop/*" element={<SwipixApp />} />
-      </Routes>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/vision" element={<VisionPage />} />
+          <Route path="/shop/*" element={<SwipixApp />} />
+        </Routes>
+      </div>
     </>
   );
 }

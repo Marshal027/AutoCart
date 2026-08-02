@@ -12,6 +12,11 @@ const frontendRoot = path.resolve(__dirname, "..");
 export default defineConfig({
   root: frontendRoot,
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(frontendRoot, "src"),
+    },
+  },
   css: {
     postcss: {
       plugins: [

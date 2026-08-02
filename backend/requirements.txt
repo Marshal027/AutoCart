@@ -4,3 +4,6 @@ django-cors-headers
 python-dotenv
 google-genai
 google-search-results
+langchain
+langchain-openai
+langchain-core

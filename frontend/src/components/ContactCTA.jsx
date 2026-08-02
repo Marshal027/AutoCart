@@ -27,7 +27,7 @@ export default function ContactCTA() {
   return (
     <section className="contact-cta" ref={ctaRef}>
       <div className="contact-button">
-        <a href="#demo"></a>
+        <a href="/shop"></a>
         <div className="contact-text-small">
           <p className="ss">Start automating your purchases today.</p>
         </div>
