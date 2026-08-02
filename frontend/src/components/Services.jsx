@@ -9,22 +9,22 @@ export default function Services() {
     {
       id: "service-card-1",
       title: "Real-time Processing",
-      image: "/images/work-items/work-item-1.jpg",
+      image: "/images/work-items/work-item-1.jpeg",
     },
     {
       id: "service-card-2",
       title: "Autonomous Agents",
-      image: "/images/work-items/work-item-2.jpg",
+      image: "/images/work-items/work-item-2.jpeg",
     },
     {
       id: "service-card-3",
       title: "Secure Checkouts",
-      image: "/images/work-items/work-item-3.jpg",
+      image: "/images/work-items/work-item-3.jpeg",
     },
     {
       id: "service-card-4",
       title: "Multi-Platform Integration",
-      image: "/images/work-items/work-item-4.jpg",
+      image: "/images/work-items/work-item-4.jpeg",
     },
   ];
 

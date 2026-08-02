@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 export default function Footer() {
   const footerRef = useRef(null);
@@ -20,7 +20,7 @@ export default function Footer() {
     const imageParticleCount = 10;
     const imagePaths = Array.from(
       { length: imageParticleCount },
-      (_, i) => `/images/work-items/work-item-${i + 1}.jpg`
+      (_, i) => `/images/work-items/work-item-${i + 1}.jpeg`,
     );
 
     // Preload
@@ -71,8 +71,12 @@ export default function Footer() {
       hasExplodedRef.current = true;
 
       createParticles();
-      const particleElements = explosionContainerRef.current.querySelectorAll(".explosion-particle-img");
-      const particles = Array.from(particleElements).map((element) => new Particle(element));
+      const particleElements = explosionContainerRef.current.querySelectorAll(
+        ".explosion-particle-img",
+      );
+      const particles = Array.from(particleElements).map(
+        (element) => new Particle(element),
+      );
 
       const animate = () => {
         particles.forEach((particle) => particle.update());
@@ -129,22 +133,42 @@ export default function Footer() {
         <div className="footer-row">
           <div className="footer-col">
             <p>Explore</p>
-            <p><a href="/">Home</a></p>
-            <p><a href="#how">How it works</a></p>
-            <p><a href="#merchants">Merchants</a></p>
+            <p>
+              <a href="/">Home</a>
+            </p>
+            <p>
+              <a href="#how">How it works</a>
+            </p>
+            <p>
+              <a href="#merchants">Merchants</a>
+            </p>
           </div>
           <div className="footer-col">
             <p>Company</p>
-            <p><a href="#">About</a></p>
-            <p><a href="#">Careers</a></p>
-            <p><a href="#">Privacy</a></p>
-            <p><a href="#">Terms</a></p>
+            <p>
+              <a href="#">About</a>
+            </p>
+            <p>
+              <a href="#">Careers</a>
+            </p>
+            <p>
+              <a href="#">Privacy</a>
+            </p>
+            <p>
+              <a href="#">Terms</a>
+            </p>
           </div>
           <div className="footer-col">
             <p>Connect</p>
-            <p><a href="#">Twitter</a></p>
-            <p><a href="#">Instagram</a></p>
-            <p><a href="#">Discord</a></p>
+            <p>
+              <a href="#">Twitter</a>
+            </p>
+            <p>
+              <a href="#">Instagram</a>
+            </p>
+            <p>
+              <a href="#">Discord</a>
+            </p>
           </div>
         </div>
         <div className="copyright-info">

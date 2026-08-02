@@ -83,7 +83,7 @@ export default function FeaturedWork() {
           featuredImgCard.className = `featured-img-card featured-img-card-${i}`;
           const img = document.createElement("img");
           // Reusing work-item images as feature showcases
-          img.src = `/images/work-items/work-item-${i}.jpg`;
+          img.src = `/images/work-items/work-item-${i}.jpeg`;
           img.alt = `feature image ${i}`;
           featuredImgCard.appendChild(img);
           const position = featuredCardPos[i - 1];
@@ -171,7 +171,7 @@ export default function FeaturedWork() {
             <h1>{feature}</h1>
             <div className="featured-title-img">
               <img
-                src={`/images/work-items/work-item-${i + 1}.jpg`}
+                src={`/images/work-items/work-item-${i + 1}.jpeg`}
                 alt={feature}
               />
             </div>

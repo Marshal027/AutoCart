@@ -1,5 +1,3 @@
-
-
 export interface ProductIdentification {
   itemName: string;
   brand: string;
@@ -8,21 +6,28 @@ export interface ProductIdentification {
   description: string;
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(
+  /\/$/,
+  "",
+);
+
 /**
  * Identifies a product in the given base64 image by communicating with the backend.
  *
  * @param base64Image - The base64-encoded image string, optionally prefixed as a data URL.
  * @returns A promise resolving to a structured {@link ProductIdentification} object.
  */
-export async function identifyProduct(base64Image: string): Promise<ProductIdentification> {
+export async function identifyProduct(
+  base64Image: string,
+): Promise<ProductIdentification> {
   if (!base64Image) {
-    throw new Error('No image data provided for identification.');
+    throw new Error("No image data provided for identification.");
   }
 
-  const response = await fetch('/api/shop/vision/identify/', {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/shop/vision/identify/`, {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ base64Image }),
   });
@@ -32,7 +37,7 @@ export async function identifyProduct(base64Image: string): Promise<ProductIdent
     try {
       const errorJson = await response.json();
       if (errorJson.error) {
-        if (typeof errorJson.error === 'string') {
+        if (typeof errorJson.error === "string") {
           errorMsg = errorJson.error;
         } else if (errorJson.error.message) {
           errorMsg = errorJson.error.message;
@@ -51,26 +56,29 @@ export async function identifyProduct(base64Image: string): Promise<ProductIdent
   }
 
   const responseJson = await response.json();
-  const textResult: string | undefined = responseJson.candidates?.[0]?.content?.parts?.[0]?.text;
+  const textResult: string | undefined =
+    responseJson.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!textResult) {
-    throw new Error('Backend API returned an empty response.');
+    throw new Error("Backend API returned an empty response.");
   }
 
   // Safely parse the JSON structure
-  const parsedData: Partial<ProductIdentification> = JSON.parse(textResult.trim());
+  const parsedData: Partial<ProductIdentification> = JSON.parse(
+    textResult.trim(),
+  );
 
   // Ensure every required key exists, defaulting to empty string
   const requiredKeys: (keyof ProductIdentification)[] = [
-    'itemName',
-    'brand',
-    'category',
-    'confidence',
-    'description',
+    "itemName",
+    "brand",
+    "category",
+    "confidence",
+    "description",
   ];
   for (const key of requiredKeys) {
     if (parsedData[key] === undefined) {
-      parsedData[key] = '';
+      parsedData[key] = "";
     }
   }
 

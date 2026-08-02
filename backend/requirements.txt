@@ -1,6 +1,10 @@
 Django
 djangorestframework
 django-cors-headers
+gunicorn
+whitenoise
+dj-database-url
+psycopg[binary]
 openai
 requests
 python-dotenv

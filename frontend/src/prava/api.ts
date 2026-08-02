@@ -17,6 +17,11 @@ export interface PravaSessionRequest {
   userEmail: string;
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(
+  /\/$/,
+  "",
+);
+
 export interface PravaSessionResponse {
   session_id?: string;
   session_token?: string;
@@ -36,15 +41,18 @@ export async function createPravaSession(
   let response: Response;
 
   try {
-    response = await fetch('/api/prava/session/', {
-      method: 'POST',
+    response = await fetch(`${API_BASE}/prava/session/`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Network error while creating Prava session.';
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Network error while creating Prava session.";
     throw new Error(`Could not reach the backend: ${message}`);
   }
 
@@ -53,7 +61,8 @@ export async function createPravaSession(
 
   if (rawBody) {
     try {
-      data = JSON.parse(rawBody) as Partial<{ error: string }> & Record<string, unknown>;
+      data = JSON.parse(rawBody) as Partial<{ error: string }> &
+        Record<string, unknown>;
     } catch {
       data = { error: rawBody };
     }
@@ -83,61 +92,81 @@ export interface PravaSessionsResponse {
 }
 
 function getErrorMessage(data: unknown, fallback: string): string {
-  if (!data || typeof data !== 'object') return fallback;
+  if (!data || typeof data !== "object") return fallback;
 
   const error = (data as { error?: unknown }).error;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object') {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
     const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string') return message;
+    if (typeof message === "string") return message;
   }
 
   const message = (data as { message?: unknown }).message;
-  return typeof message === 'string' ? message : fallback;
+  return typeof message === "string" ? message : fallback;
 }
 
 export async function createPravaSessions(
   payload: PravaSessionRequest,
 ): Promise<PravaSessionsResponse> {
-  const response = await fetch('/api/prava/sessions/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch(`${API_BASE}/prava/sessions/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = getErrorMessage(data, 'Could not create Prava merchant sessions.');
+    const message = getErrorMessage(
+      data,
+      "Could not create Prava merchant sessions.",
+    );
     throw new Error(`Prava checkout failed (${response.status}): ${message}`);
   }
   if (!Array.isArray(data.sessions)) {
-    throw new Error('Prava checkout returned no merchant sessions.');
+    throw new Error("Prava checkout returned no merchant sessions.");
   }
   return data as PravaSessionsResponse;
 }
 
-export async function pollPravaPaymentResult(sessionId: string): Promise<Record<string, any>> {
-  const response = await fetch(`/api/prava/sessions/${encodeURIComponent(sessionId)}/payment-result/?_t=${Date.now()}`, {
-    cache: 'no-store',
-  });
+export async function pollPravaPaymentResult(
+  sessionId: string,
+): Promise<Record<string, any>> {
+  const response = await fetch(
+    `${API_BASE}/prava/sessions/${encodeURIComponent(sessionId)}/payment-result/?_t=${Date.now()}`,
+    {
+      cache: "no-store",
+    },
+  );
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(getErrorMessage(data, 'Could not read Prava payment status.'));
+    throw new Error(
+      getErrorMessage(data, "Could not read Prava payment status."),
+    );
   }
   return data;
 }
 
 export async function reportPravaPaymentStatus(
   sessionId: string,
-  payload: { txn_ref_id: string; txn_status: 'APPROVED' | 'DECLINED'; authorization_code?: string; response_code?: string },
+  payload: {
+    txn_ref_id: string;
+    txn_status: "APPROVED" | "DECLINED";
+    authorization_code?: string;
+    response_code?: string;
+  },
 ): Promise<Record<string, any>> {
-  const response = await fetch(`/api/prava/sessions/${encodeURIComponent(sessionId)}/report-status/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const response = await fetch(
+    `${API_BASE}/prava/sessions/${encodeURIComponent(sessionId)}/report-status/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(getErrorMessage(data, 'Could not report Prava payment status.'));
+    throw new Error(
+      getErrorMessage(data, "Could not report Prava payment status."),
+    );
   }
   return data;
 }

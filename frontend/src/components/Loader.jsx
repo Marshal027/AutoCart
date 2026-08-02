@@ -85,7 +85,7 @@ export default function Loader({ onComplete }) {
     const imageParticleCount = 10;
     const imagePaths = Array.from(
       { length: imageParticleCount },
-      (_, i) => `/images/work-items/work-item-${i + 1}.jpg`,
+      (_, i) => `/images/work-items/work-item-${i + 1}.jpeg`,
     );
 
     let loadedCount = 0;
