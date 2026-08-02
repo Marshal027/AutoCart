@@ -29,22 +29,68 @@ export const watchlistBus = new EventTarget();
 export const getWatchlist = (): any[] => {
   try { return JSON.parse(localStorage.getItem("watchlist") || "[]"); } catch { return []; }
 };
-export const toggleWatchlist = (item: any) => {
+export const toggleWatchlist = async (item: any) => {
   let list = getWatchlist();
-  if (list.find(i => i.id === item.id)) {
-    list = list.filter(i => i.id !== item.id);
-  } else {
-    list.push(item);
+  const existing = list.find(i => i.id === item.id);
+  try {
+    const response = existing
+      ? await fetch(`${API_BASE}/linq/watchlist/${encodeURIComponent(String(item.id))}/`, { method: "DELETE" })
+      : await fetch(`${API_BASE}/linq/watchlist/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: item.id,
+          name: item.name,
+          brand: item.brand || item.restaurant || item.cuisine || "",
+          variant: item.quantity || item.portion || "",
+          price: item.price,
+          merchant: item.merchant || item.restaurant || item.source || "",
+          availability: item.in_stock === false ? "Out of Stock" : "In Stock",
+          image_url: item.image || item.image_url || "",
+          url: item.url || item.product_url || "",
+          source: item.source || "Product Card",
+        }),
+      });
+    if (!response.ok) throw new Error("Watchlist update failed");
+
+    if (existing) {
+      list = list.filter(i => i.id !== item.id);
+    } else {
+      list = [...list, { ...item, image: item.image || item.image_url }];
+    }
+    localStorage.setItem("watchlist", JSON.stringify(list));
+    watchlistBus.dispatchEvent(new Event("updated"));
+  } catch (error) {
+    console.error("Watchlist update failed:", error);
   }
-  localStorage.setItem("watchlist", JSON.stringify(list));
-  watchlistBus.dispatchEvent(new Event("updated"));
 };
 export function useWatchlist() {
-  const [list, setList] = useState<any[]>(getWatchlist());
+  const [list, setList] = useState<any[]>([]);
   useEffect(() => {
     const handler = () => setList(getWatchlist());
     watchlistBus.addEventListener("updated", handler);
-    return () => watchlistBus.removeEventListener("updated", handler);
+
+    const refreshServerWatchlist = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/linq/watchlist/`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data.items)) {
+          localStorage.setItem("watchlist", JSON.stringify(data.items));
+          setList(data.items);
+          watchlistBus.dispatchEvent(new Event("updated"));
+        }
+      } catch {
+        // Keep local watchlist data available if the backend is temporarily offline.
+      }
+    };
+
+    refreshServerWatchlist();
+    const intervalId = window.setInterval(refreshServerWatchlist, 5000);
+    return () => {
+      watchlistBus.removeEventListener("updated", handler);
+      window.clearInterval(intervalId);
+    };
   }, []);
   return list;
 }
@@ -148,7 +194,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   }
 }
 
-type GeminiUsageData = {
+type AIUsageData = {
   api_key_configured: boolean;
   masked_key: string;
   model: string;

@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-08-02T08:54:37.172148+00:00",
+  "method": "GET",
+  "content_type": "text/plain",
+  "headers": {
+    "Content-Length": "",
+    "Content-Type": "text/plain",
+    "X-Forwarded-For": "152.59.13.152",
+    "X-Forwarded-Proto": "https",
+    "X-Forwarded-Port": "443",
+    "Host": "nice-parrots-behave.loca.lt",
+    "Accept": "*/*",
+    "User-Agent": "curl/8.5.0",
+    "X-Forwarded-Host": "nice-parrots-behave.loca.lt",
+    "Connection": "keep-alive"
+  },
+  "raw_body": "",
+  "parsed_body": null
+}

@@ -1,7 +1,7 @@
 import type { ProductIdentification } from './visionService';
 
 interface VisionResultProps {
-  /** Parsed product data from Gemini, or null if not yet available. */
+  /** Parsed product data from the AI vision service, or null if not yet available. */
   result: ProductIdentification | null;
   /** Whether the identification service call is in-flight. */
   isLoading: boolean;
@@ -12,7 +12,7 @@ interface VisionResultProps {
 }
 
 /**
- * VisionResult displays the structured product information identified by Gemini.
+ * VisionResult displays the structured product information identified by the AI vision service.
  * Handles loading (holographic scanner animation), error, empty, and success states.
  */
 export default function VisionResult({ result, isLoading, error, onRetry }: VisionResultProps) {
@@ -25,7 +25,7 @@ export default function VisionResult({ result, isLoading, error, onRetry }: Visi
             <div className="spinner-segment" />
           </div>
           <h4>Analyzing Product...</h4>
-          <p className="loading-subtext">Consulting Gemini to identify product matches...</p>
+          <p className="loading-subtext">Consulting AI to identify product matches...</p>
         </div>
       </div>
     );

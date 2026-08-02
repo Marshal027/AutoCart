@@ -31,6 +31,19 @@ export default function LiquidEther({
   const isVisibleRef = useRef(true);
   const resizeRafRef = useRef(null);
 
+  const canCreateWebGLContext = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl2 = canvas.getContext('webgl2', { alpha: true, antialias: true });
+      if (gl2) return true;
+      const gl = canvas.getContext('webgl', { alpha: true, antialias: true }) ||
+        canvas.getContext('experimental-webgl', { alpha: true, antialias: true });
+      return !!gl;
+    } catch (e) {
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -87,7 +100,12 @@ export default function LiquidEther({
         this.container = container;
         this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
         this.resize();
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        try {
+          this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        } catch (e) {
+          this.renderer = null;
+          return false;
+        }
         this.renderer.autoClear = false;
         this.renderer.setClearColor(new THREE.Color(0x000000), 0);
         this.renderer.setPixelRatio(this.pixelRatio);
@@ -97,6 +115,7 @@ export default function LiquidEther({
         this.renderer.domElement.style.display = 'block';
         this.clock = new THREE.Clock();
         this.clock.start();
+        return true;
       }
       resize() {
         if (!this.container) return;
@@ -107,6 +126,7 @@ export default function LiquidEther({
         if (this.renderer) this.renderer.setSize(this.width, this.height, false);
       }
       update() {
+        if (!this.clock) return;
         this.delta = this.clock.getDelta();
         this.time += this.delta;
       }
@@ -926,7 +946,10 @@ export default function LiquidEther({
     class WebGLManager {
       constructor(props) {
         this.props = props;
-        Common.init(props.$wrapper);
+        const initialized = Common.init(props.$wrapper);
+        if (!initialized || !Common.renderer) {
+          throw new Error('WebGL renderer unavailable');
+        }
         Mouse.init(props.$wrapper);
         Mouse.autoIntensity = props.autoIntensity;
         Mouse.takeoverDuration = props.takeoverDuration;
@@ -957,14 +980,21 @@ export default function LiquidEther({
         this.running = false;
       }
       init() {
+        if (!Common.renderer || !Common.renderer.domElement) return;
         this.props.$wrapper.prepend(Common.renderer.domElement);
+        Common.renderer.domElement.addEventListener('webglcontextlost', (event) => {
+          event.preventDefault();
+          this.pause();
+        });
         this.output = new Output();
       }
       resize() {
+        if (!this.output) return;
         Common.resize();
         this.output.resize();
       }
       render() {
+        if (!this.output || !Common.renderer) return;
         if (this.autoDriver) this.autoDriver.update();
         Mouse.update();
         Common.update();
@@ -1008,15 +1038,42 @@ export default function LiquidEther({
     container.style.position = container.style.position || 'relative';
     container.style.overflow = container.style.overflow || 'hidden';
 
-    const webgl = new WebGLManager({
-      $wrapper: container,
-      autoDemo,
-      autoSpeed,
-      autoIntensity,
-      takeoverDuration,
-      autoResumeDelay,
-      autoRampDuration
-    });
+    if (!canCreateWebGLContext()) {
+      return () => {
+        if (resizeObserverRef.current) {
+          try {
+            resizeObserverRef.current.disconnect();
+          } catch (e) {
+            void 0;
+          }
+        }
+        if (intersectionObserverRef.current) {
+          try {
+            intersectionObserverRef.current.disconnect();
+          } catch (e) {
+            void 0;
+          }
+        }
+      };
+    }
+
+    let webgl;
+    try {
+      webgl = new WebGLManager({
+        $wrapper: container,
+        autoDemo,
+        autoSpeed,
+        autoIntensity,
+        takeoverDuration,
+        autoResumeDelay,
+        autoRampDuration
+      });
+    } catch (e) {
+      webglRef.current = null;
+      return () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      };
+    }
     webglRef.current = webgl;
 
     const applyOptionsFromProps = () => {

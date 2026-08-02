@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-08-02T08:56:43.126310+00:00",
+  "method": "POST",
+  "content_type": "application/json",
+  "headers": {
+    "Content-Length": "1183",
+    "Content-Type": "application/json",
+    "X-Forwarded-For": "54.157.59.12",
+    "X-Forwarded-Proto": "https",
+    "X-Forwarded-Port": "443",
+    "Host": "nice-parrots-behave.loca.lt",
+    "Accept-Encoding": "gzip",
+    "X-Webhook-Timestamp": "1785660995",
+    "X-Webhook-Subscription-Id": "b708d236-17b6-4916-886d-d3e69f0fd37f",
+    "X-Webhook-Signature": "a880234df9b028701291214632024de6bcc446f0c0fb017dd599d397b98902f2",
+    "X-Webhook-Payload-Version": "2026-02-03",
+    "X-Webhook-Event": "message.received",
+    "Webhook-Timestamp": "1785660995",
+    "Webhook-Signature": "v1,CRYOvk1cT0wywAPkW1SRRLqtYoOKgk0UPVrfj7sTaaY=",
+    "Webhook-Id": "e67c5cb8-358c-4cb1-9e6e-b179d5dc2515",
+    "Traceparent": "00-d48e31495cd0af15301400b771390f45-2ac029e3be8b05c4-01",
+    "User-Agent": "Synapse-Webhooks/1.0",
+    "X-Forwarded-Host": "nice-parrots-behave.loca.lt",
+    "Connection": "keep-alive"
+  },
+  "raw_body": "{\"api_version\":\"v3\",\"webhook_version\":\"2026-02-03\",\"event_type\":\"message.received\",\"event_id\":\"e67c5cb8-358c-4cb1-9e6e-b179d5dc2515\",\"created_at\":\"2026-08-02T08:56:35.587329106Z\",\"trace_id\":\"d48e31495cd0af15301400b771390f45\",\"partner_id\":\"72e2d4a3-b287-54b5-924b-d2dc2ad7f31b\",\"data\":{\"chat\":{\"health_status\":{\"doc_url\":\"https://docs.linqapp.com/guides/chats/chat-health#healthy\",\"status\":\"HEALTHY\",\"updated_at\":\"2026-08-02T08:56:35.576472Z\"},\"id\":\"6e382574-cbfd-4682-8f93-0852be38635f\",\"is_group\":false,\"owner_handle\":{\"handle\":\"+12132855773\",\"id\":\"93bcd9e7-6e62-43a2-8eec-ece55e8a0619\",\"is_me\":true,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"RCS\",\"status\":\"active\"}},\"delivered_at\":null,\"direction\":\"inbound\",\"effect\":null,\"id\":\"c11c473e-97bb-4571-b82a-663d7bacd7af\",\"idempotency_key\":null,\"parts\":[{\"text_decorations\":null,\"type\":\"text\",\"value\":\"yes\"}],\"preferred_service\":null,\"read_at\":null,\"reply_to\":null,\"sender_handle\":{\"handle\":\"+917620915011\",\"id\":\"7ca7b647-b80c-4886-a458-eafa68bd482b\",\"is_me\":false,\"joined_at\":\"2026-07-31T15:44:28.404428Z\",\"left_at\":null,\"service\":\"RCS\",\"status\":\"active\"},\"sent_at\":\"2026-08-02T08:56:35.098Z\",\"service\":\"RCS\"}}",
+  "parsed_body": {
+    "api_version": "v3",
+    "webhook_version": "2026-02-03",
+    "event_type": "message.received",
+    "event_id": "e67c5cb8-358c-4cb1-9e6e-b179d5dc2515",
+    "created_at": "2026-08-02T08:56:35.587329106Z",
+    "trace_id": "d48e31495cd0af15301400b771390f45",
+    "partner_id": "72e2d4a3-b287-54b5-924b-d2dc2ad7f31b",
+    "data": {
+      "chat": {
+        "health_status": {
+          "doc_url": "https://docs.linqapp.com/guides/chats/chat-health#healthy",
+          "status": "HEALTHY",
+          "updated_at": "2026-08-02T08:56:35.576472Z"
+        },
+        "id": "6e382574-cbfd-4682-8f93-0852be38635f",
+        "is_group": false,
+        "owner_handle": {
+          "handle": "+12132855773",
+          "id": "93bcd9e7-6e62-43a2-8eec-ece55e8a0619",
+          "is_me": true,
+          "joined_at": "2026-07-31T15:44:28.404428Z",
+          "left_at": null,
+          "service": "RCS",
+          "status": "active"
+        }
+      },
+      "delivered_at": null,
+      "direction": "inbound",
+      "effect": null,
+      "id": "c11c473e-97bb-4571-b82a-663d7bacd7af",
+      "idempotency_key": null,
+      "parts": [
+        {
+          "text_decorations": null,
+          "type": "text",
+          "value": "yes"
+        }
+      ],
+      "preferred_service": null,
+      "read_at": null,
+      "reply_to": null,
+      "sender_handle": {
+        "handle": "+917620915011",
+        "id": "7ca7b647-b80c-4886-a458-eafa68bd482b",
+        "is_me": false,
+        "joined_at": "2026-07-31T15:44:28.404428Z",
+        "left_at": null,
+        "service": "RCS",
+        "status": "active"
+      },
+      "sent_at": "2026-08-02T08:56:35.098Z",
+      "service": "RCS"
+    }
+  }
+}

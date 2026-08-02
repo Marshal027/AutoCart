@@ -71,8 +71,33 @@ export default function App() {
           autoRampDuration={0.6}
         />
       </div>
+      <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />
+      
+      {/* Black navigation bar on top of all layouts */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '40px',
+        backgroundColor: '#000000',
+        color: '#ffffff',
+        zIndex: 99999999, // on top of everything
+        display: 'flex',
+        alignItems: 'center',
+        paddingLeft: '2em',
+        fontFamily: "'Space Mono', monospace",
+        fontSize: '0.85rem',
+        textTransform: 'lowercase',
+        letterSpacing: '2px',
+        fontWeight: 'bold',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+      }}>
+        find in
+      </div>
+
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className="cursor-dot" ref={cursorRef} style={{ pointerEvents: 'none', zIndex: 9999, position: 'fixed', top: 0, left: 0 }} />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/vision" element={<VisionPage />} />

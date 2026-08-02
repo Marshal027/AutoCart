@@ -19,7 +19,7 @@ interface VisionSearchProps {
  * VisionSearch is the top-level orchestrator component.
  * Combine with a single import: `import VisionSearch from './Vision';`
  *
- * It coordinates camera capture, the Gemini identification service, and
+  * It coordinates camera capture, the AI identification service, and
  * the result display — managing all shared state in one place.
  */
 export default function VisionSearch({ onProductFound, className = '' }: VisionSearchProps) {

@@ -7,8 +7,9 @@ __pycache__/
 *.pyo
 *.pyd
 *.egg-info/
-.env
-*.env
+**/.env
+**/.env.*
+!**/.env.example
 *.sqlite3
 db.sqlite3
 backend/db.sqlite3
@@ -19,7 +20,6 @@ staticfiles/
 node_modules/
 frontend/node_modules/
 bun.lock
-.env.local
 dist/
 frontend/dist/
 build/

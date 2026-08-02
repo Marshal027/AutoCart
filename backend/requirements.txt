@@ -2,8 +2,9 @@ Django
 djangorestframework
 django-cors-headers
 python-dotenv
-google-genai
 google-search-results
+openai
+requests
 langchain
 langchain-openai
 langchain-core

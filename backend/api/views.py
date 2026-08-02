@@ -3,9 +3,9 @@ import logging
 import requests
 
 from django.conf import settings
+from openai import OpenAI
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from google import genai
 from .mcp_registry import WORKING_MCPS, NEEDS_WORK_MCPS, CLAUDE_CONNECTORS
 
 logger = logging.getLogger(__name__)
@@ -27,10 +27,10 @@ if not _skill_text:
     { "valid": false, "message": "That doesn't seem to match this category. Try something else." }
     """
 
-# ── Gemini client ──────────────────────────────────────────────────────
-_client = None
-if getattr(settings, 'GEMINI_API_KEY', None):
-    _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+# ── OpenAI client ──────────────────────────────────────────────────────
+_openai_client = None
+if getattr(settings, 'OPENAI_API_KEY', None):
+    _openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 MCP_CATEGORY_ALIASES = {
@@ -136,97 +136,26 @@ def detect_category_and_product(query: str, answers: list | None = None) -> dict
     }
 
 
-def call_gemini(system_prompt: str, user_prompt: str) -> dict:
-    if not _client:
-        raise ValueError("Gemini API client not configured.")
-    response = _client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=user_prompt,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.1,
-        ),
-    )
-    raw = response.text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1]
-        raw = raw.rsplit("```", 1)[0].strip()
-    return json.loads(raw)
+def run_ai_pipeline(system_prompt: str, user_prompt: str) -> dict:
+    """Run a structured JSON request through OpenAI."""
+    if not _openai_client:
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
 
-
-def call_groq(system_prompt: str, user_prompt: str) -> dict:
-    """Fallback handler using Groq API (llama-3.3-70b-versatile)."""
-    groq_key = getattr(settings, 'GROQ_API_KEY', '')
-    if not groq_key:
-        raise ValueError("Groq API key is not configured.")
-
-    # Groq requires the word 'json' in messages when using json_object response_format
-    system_with_json = system_prompt + "\nRespond with valid JSON."
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {groq_key}",
-    }
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": system_with_json},
+    response = _openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
-
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=15,
+        temperature=0.1,
+        response_format={"type": "json_object"},
+        timeout=30,
     )
-    
-    try:
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        if response.status_code == 429:
-            logger.warning("Groq 429 Rate Limit on 70b. Retrying with llama-3.1-8b-instant...")
-            payload["model"] = "llama-3.1-8b-instant"
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=15,
-            )
-            try:
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as retry_e:
-                raise RuntimeError(f"Groq retry failed ({response.status_code}): {response.text}") from retry_e
-        else:
-            raise RuntimeError(f"Groq failed ({response.status_code}): {response.text}") from e
-
-    data = response.json()
-    content = data["choices"][0]["message"]["content"].strip()
-
+    content = (response.choices[0].message.content or "").strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[-1]
         content = content.rsplit("```", 1)[0].strip()
-
     return json.loads(content)
-
-
-def run_ai_pipeline(system_prompt: str, user_prompt: str) -> dict:
-    """Run AI request with fallback (Gemini -> Groq)."""
-    # 1. Gemini
-    try:
-        return call_gemini(system_prompt, user_prompt)
-    except Exception as exc:
-        logger.warning("Gemini error (%s). Trying Groq...", exc)
-
-    # 2. Groq (llama-3.3-70b-versatile)
-    try:
-        return call_groq(system_prompt, user_prompt)
-    except Exception as exc:
-        logger.error("Groq error: %s", exc)
-        raise RuntimeError(f"All AI providers failed: {exc}")
 
 
 def _ai_generate_products(query: str, answers: list, category: str, count: int = 2) -> list:
@@ -290,57 +219,27 @@ def _ai_generate_products(query: str, answers: list, category: str, count: int =
                 
         return valid_items
 
-    # Try Gemini first
-    try:
-        if _client:
-            response = _client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    system_instruction=system,
-                    temperature=0.3,
-                ),
-            )
-            return _parse_ai_json(response.text)
-    except Exception as e:
-        print("GEMINI EXCEPTION:", str(e))
-        import traceback
-        traceback.print_exc()
-        logger.warning("Gemini product generation failed: %s", e)
-
-    # Fallback to Groq
-    try:
-        groq_key = getattr(settings, 'GROQ_API_KEY', '')
-        if groq_key:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {groq_key}",
-            }
-            payload = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": system + "\nRespond with valid JSON array."},
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0.3,
-            }
-            res = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=15,
-            )
-            res.raise_for_status()
-            content = res.json()["choices"][0]["message"]["content"]
-            return _parse_ai_json(content)
-    except Exception as e:
-        print("GROQ EXCEPTION:", str(e))
-        import traceback
-        traceback.print_exc()
-        logger.error("Groq product generation failed: %s", e)
+    if not _openai_client:
         return []
 
-    return []
+    try:
+        response = _openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system + "\nRespond with a JSON object containing a products array.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+            timeout=30,
+        )
+        return _parse_ai_json(response.choices[0].message.content or "")
+    except Exception as e:
+        logger.error("OpenAI product generation failed: %s", e)
+        return []
 
 
 

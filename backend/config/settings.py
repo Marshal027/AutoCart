@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / '.env', override=True)
 
 
 # Quick-start development settings - unsuitable for production
@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-45tbegpy43x(8^2allxd(cejp$=l$#__7i4bln#9^55(2@94$j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.loca.lt']
 
 
 # Application definition
@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'api',
     'prava',
     'shop',
+    'linq',
 ]
 
 MIDDLEWARE = [
@@ -140,8 +141,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Third-party APIs
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY")
 
 # Path to the AI agent skill file

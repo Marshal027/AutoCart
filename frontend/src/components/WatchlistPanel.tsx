@@ -117,6 +117,14 @@ export function WatchlistPanel({ onAddToCart }: WatchlistPanelProps) {
                         </span>
                       )}
                     </div>
+                    <div className="text-text/50 text-xs">
+                      {item.last_updated
+                        ? `Updated ${new Date(item.last_updated).toLocaleString()}`
+                        : "Watching price"}
+                      {item.price_change !== null && item.price_change !== undefined
+                        ? ` · Change ₹${item.price_change}`
+                        : ""}
+                    </div>
 
                     <button
                       className="swiggy-add-btn w-full"

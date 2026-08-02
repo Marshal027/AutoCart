@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-08-02T10:32:55.801935+00:00",
+  "method": "GET",
+  "content_type": "text/plain",
+  "headers": {
+    "Content-Length": "",
+    "Content-Type": "text/plain",
+    "Host": "127.0.0.1:8000",
+    "User-Agent": "curl/8.5.0",
+    "Accept": "*/*"
+  },
+  "raw_body": "",
+  "parsed_body": null
+}
